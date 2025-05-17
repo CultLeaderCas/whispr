@@ -1,6 +1,10 @@
-// ... imports stay the same
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/router';
+import { supabase } from '@/lib/supabaseClient';
+import { v4 as uuidv4 } from 'uuid';
+
 export default function ProfilePage() {
-  const router = useRouter();
+  const router = router();
 
   const [profile, setProfile] = useState<any>({
     displayName: '',
