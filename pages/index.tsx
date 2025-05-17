@@ -9,6 +9,7 @@ export default function Home() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [stars, setStars] = useState<JSX.Element[]>([]);
+  const [showSignUp, setShowSignUp] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,6 +21,20 @@ export default function Home() {
       router.push('/pulse');
     }
   };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setMessage('');
+  const { data, error } = await supabase.auth.signUp({ email, password });
+
+  if (error) {
+    setMessage(error.message);
+  } else if (data.user) {
+    router.push('/profile');
+  } else {
+    setMessage('Check your email to confirm your account!');
+  }
+};
 
   const handleForgotPassword = async () => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -33,7 +48,7 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const colors = ['#12f7ff', '#fe019a', '#9500FF']; // cyan, pink, purple
+    const colors = ['#12f7ff', '#fe019a', '#9500FF'];
     const newStars = Array.from({ length: 60 }).map((_, i) => {
       const size = Math.random() * 4 + 1;
       const top = Math.random() * 100;
@@ -65,7 +80,6 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen bg-black flex items-center justify-center overflow-hidden font-sans text-white">
-      {/* GLOBAL STYLE for twinkle animation */}
       <style global jsx>{`
         @keyframes twinkle {
           0% {
@@ -82,17 +96,15 @@ export default function Home() {
         }
       `}</style>
 
-      {/* Animated Stars */}
       <div className="absolute inset-0 z-0">{stars}</div>
 
-      {/* Login Panel */}
       <div className="z-10 bg-[#111] p-8 rounded-2xl shadow-2xl border border-[#333] w-full max-w-md backdrop-blur-sm">
         <h1 className="text-4xl font-extrabold text-center text-[#9500FF] mb-2 drop-shadow-[0_0_10px_#9500FF]">
           Whispr
         </h1>
         <p className="text-center text-gray-400 mb-6">Game. Rage. Whispr.</p>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={showSignUp ? handleSignUp : handleLogin} className="space-y-4">
           <input
             type="email"
             placeholder="Email"
@@ -116,17 +128,31 @@ export default function Home() {
             type="submit"
             className="w-full bg-[#12f7ff] text-[#111] font-bold py-2 px-4 rounded-xl hover:bg-[#0fd0d0] transition"
           >
-            Login
+            {showSignUp ? 'Sign Up' : 'Login'}
           </button>
 
-          <button
-            type="button"
-            onClick={handleForgotPassword}
-            className="text-sm text-[#aaa] hover:text-[#12f7ff] transition mt-2 block mx-auto"
-          >
-            Forgot password?
-          </button>
+          {!showSignUp && (
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-sm text-[#aaa] hover:text-[#12f7ff] transition mt-2 block mx-auto"
+            >
+              Forgot password?
+            </button>
+          )}
         </form>
+
+        <div className="text-center mt-4">
+          <button
+            onClick={() => {
+              setMessage('');
+              setShowSignUp(!showSignUp);
+            }}
+            className="text-sm text-[#aaa] hover:text-[#fe019a] transition"
+          >
+            {showSignUp ? 'Already have an account? Log in' : 'New here? Sign up'}
+          </button>
+        </div>
       </div>
     </div>
   );
