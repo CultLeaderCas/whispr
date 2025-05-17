@@ -1,163 +1,155 @@
-import { useEffect, useState } from 'react';
-import Head from 'next/head';
-import Link from 'next/link';
+import { useState } from 'react';
+import { useRouter } from 'next/router';
+import { supabase } from '@/lib/supabaseClient';
 
-type Star = {
-  top: string;
-  left: string;
-  size: number;
-  delay: number;
-  color: string;
-};
+export default function AuthPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<'login' | 'signup' | 'reset'>('login');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
-export default function Home() {
-  const [stars, setStars] = useState<Star[]>([]);
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
 
-  useEffect(() => {
-    const colors = ['#12f7ff', '#9500FF', '#fe019a'];
-    const generated: Star[] = [];
-    const count = 100;
-
-    for (let i = 0; i < count; i++) {
-      generated.push({
-        top: `${Math.random() * 100}vh`,
-        left: `${Math.random() * 100}vw`,
-        size: Math.random() * 2 + 1,
-        delay: Math.random() * 5,
-        color: colors[Math.floor(Math.random() * colors.length)],
-      });
+    if (!email || (mode !== 'reset' && !password)) {
+      setError("Please fill in all required fields.");
+      return;
     }
 
-    setStars(generated);
-  }, []);
+    if (mode === 'login') {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setError(error.message);
+      else router.push('/pulse');
+    }
+
+    if (mode === 'signup') {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) setError(error.message);
+      else router.push('/pulse');
+    }
+
+    if (mode === 'reset') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`
+      });
+      if (error) setError(error.message);
+      else setMessage("Check your email for a password reset link.");
+    }
+  };
+
+  const toggleMode = (newMode: typeof mode) => {
+    setError('');
+    setMessage('');
+    setMode(newMode);
+    setPassword('');
+  };
 
   return (
-    <>
-      <Head>
-        <title>Whispr</title>
-        <meta name="description" content="Whispr – Where Voices Game." />
-      </Head>
-
-      <style>{`
-        body {
-          margin: 0;
-          padding: 0;
-          background: #0a001f;
-          overflow: hidden;
-        }
-
-        .star {
-          position: fixed;
-          border-radius: 50%;
-          animation: twinkle 4s ease-in-out infinite;
-        }
-
-        @keyframes twinkle {
-          0% { opacity: 0.3; transform: scale(1); }
-          50% { opacity: 1; transform: scale(1.3); }
-          100% { opacity: 0.3; transform: scale(1); }
-        }
-
-        .glow-box {
-          width: 100%;
-          height: 250px;
-          background: linear-gradient(135deg, #111, #222);
-          border-radius: 2rem;
-          box-shadow: 0 0 80px #9500FF, 0 0 60px #12f7ff;
-          margin-top: 2rem;
-        }
-      `}</style>
-
-      {/* 🌌 Starfield Background */}
-      {stars.map((star, i) => (
-        <div
-          key={i}
-          className="star"
-          style={{
-            top: star.top,
-            left: star.left,
-            width: `${star.size}px`,
-            height: `${star.size}px`,
-            backgroundColor: star.color,
-            animationDelay: `${star.delay}s`,
-            zIndex: 0,
-          }}
-        />
-      ))}
-
-      <main style={{
-        minHeight: '100vh',
-        zIndex: 1,
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        fontFamily: 'Orbitron, sans-serif',
-        color: 'white',
-        textAlign: 'center',
-        padding: '3rem 2rem'
-      }}>
-        <h1 style={{
-          fontSize: '3.5rem',
-          fontWeight: 'bold',
-          color: '#12f7ff',
-          textShadow: '0 0 20px #12f7ff'
-        }}>
-          Where Voices Game.
+    <main className="min-h-screen flex justify-center items-center bg-black text-white font-sans">
+      <form
+        onSubmit={handleAuth}
+        className="bg-[#1e1f22] p-8 rounded-xl w-full max-w-md shadow-lg space-y-6"
+      >
+        <h1 className="text-2xl font-bold text-center">
+          {mode === 'login'
+            ? 'Log In to Whispr'
+            : mode === 'signup'
+            ? 'Create Your Whispr Account'
+            : 'Reset Your Password'}
         </h1>
-        <p style={{
-          fontSize: '1.2rem',
-          maxWidth: '500px',
-          marginTop: '1rem',
-          color: '#ccc',
-        }}>
-          Music, play, and connection. All in one signal.  
-        </p>
 
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-          <Link href="/join">
-            <button style={{
-              backgroundColor: '#12f7ff',
-              color: '#111',
-              padding: '0.8rem 1.6rem',
-              fontWeight: 'bold',
-              fontSize: '1.1rem',
-              borderRadius: '1rem',
-              cursor: 'pointer',
-              border: 'none',
-              boxShadow: '0 0 15px #12f7ff'
-            }}>
-              Join Whispr
-            </button>
-          </Link>
-          <Link href="/profileview">
-            <button style={{
-              backgroundColor: '#000',
-              color: '#fff',
-              padding: '0.8rem 1.6rem',
-              fontWeight: 'bold',
-              fontSize: '1.1rem',
-              borderRadius: '1rem',
-              border: '2px solid #ff66c4',
-              cursor: 'pointer',
-              boxShadow: '0 0 12px #ff66c4'
-            }}>
-              View Profile
-            </button>
-          </Link>
+        <div>
+          <label className="block text-sm mb-1">Email</label>
+          <input
+            type="email"
+            className="w-full p-3 rounded bg-[#2c2f33] text-white border border-[#444]"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
         </div>
 
-        {/* Placeholder for UI Showcase */}
-       <div className="glow-box">
-  <img src="/images/mockup.png" alt="Ur Mom" style={{
-    width: '100%',
-    height: '100%',
-    borderRadius: '2rem',
-    objectFit: 'cover'
-  }} />
-</div>
-      </main>
-    </>
+        {mode !== 'reset' && (
+          <div>
+            <label className="block text-sm mb-1">Password</label>
+            <input
+              type="password"
+              className="w-full p-3 rounded bg-[#2c2f33] text-white border border-[#444]"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+        )}
+
+        {error && <p className="text-red-500 text-sm">{error}</p>}
+        {message && <p className="text-green-400 text-sm">{message}</p>}
+
+        <button
+          type="submit"
+          className="w-full bg-[#12f7ff] hover:bg-cyan-400 text-black font-bold py-3 rounded transition"
+        >
+          {mode === 'login'
+            ? 'Log In'
+            : mode === 'signup'
+            ? 'Sign Up'
+            : 'Send Reset Email'}
+        </button>
+
+        <div className="text-center text-sm mt-4 space-y-2">
+          {mode === 'login' && (
+            <>
+              <p>
+                Don’t have an account?{' '}
+                <button
+                  type="button"
+                  className="text-[#12f7ff] hover:underline"
+                  onClick={() => toggleMode('signup')}
+                >
+                  Sign Up
+                </button>
+              </p>
+              <p>
+                <button
+                  type="button"
+                  className="text-[#12f7ff] hover:underline"
+                  onClick={() => toggleMode('reset')}
+                >
+                  Forgot Password?
+                </button>
+              </p>
+            </>
+          )}
+          {mode === 'signup' && (
+            <p>
+              Already have an account?{' '}
+              <button
+                type="button"
+                className="text-[#12f7ff] hover:underline"
+                onClick={() => toggleMode('login')}
+              >
+                Log In
+              </button>
+            </p>
+          )}
+          {mode === 'reset' && (
+            <p>
+              Remembered it?{' '}
+              <button
+                type="button"
+                className="text-[#12f7ff] hover:underline"
+                onClick={() => toggleMode('login')}
+              >
+                Back to Log In
+              </button>
+            </p>
+          )}
+        </div>
+      </form>
+    </main>
   );
 }
