@@ -1,318 +1,197 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
-import Head from 'next/head';
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from '@/lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 
-const badgeOptions = ['💙', '💖', '🌙', '⭐', '🎮', '👑', '🔥', '🎧', '⚡', '🧩'];
-
-export default function Profile() {
+export default function ProfilePage() {
   const router = useRouter();
-  const outerColorRef = useRef(null);
-  const innerColorRef = useRef(null);
-  const fileInputRef = useRef(null);
 
-  const [profile, setProfile] = useState({
+  const [profile, setProfile] = useState<any>({
     displayName: '',
     username: '',
     bio: '',
-    badge: '🎮',
     tagLabel: '',
-    themeColor: '#ff007f',
-    innerColor: '#222',
+    badge: '',
+    themeColor: '#12f7ff',
+    innerColor: '#111111',
     profileImage: '',
   });
 
- const handleChange = (field: keyof typeof profile, value: string) => {
-  const handleChange = (field: string, value: string) => {
-};
-
-const handleSave = async () => {
-  if (profile.tagLabel.length < 2 || profile.tagLabel.length > 12) {
-    alert('Tag must be 2–12 characters.');
-    return;
-  }
-
-  const { error } = await supabase.from('profiles').insert([
-    {
-      displayName: profile.displayName,
-      username: profile.username,
-      bio: profile.bio,
-      tagLabel: profile.tagLabel,
-      badge: profile.badge,
-      themeColor: profile.themeColor,
-      innerColor: profile.innerColor,
-      profileImage: profile.profileImage
+  useEffect(() => {
+    const saved = localStorage.getItem('echno-profile');
+    if (saved) {
+      setProfile(JSON.parse(saved));
     }
-  ]);
+  }, []);
 
-  if (error) {
-    console.error("Supabase insert error:", error.message);
-    alert("Something went wrong saving your profile.");
-  } else {
-    alert("Profile saved successfully!");
-    router.push('/pulse');
-  }
-};
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const themePickerRef = useRef<HTMLInputElement>(null);
+  const innerPickerRef = useRef<HTMLInputElement>(null);
 
-  const openColorPicker = (ref) => {
+  const handleImageUpload = (event: any) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setProfile((prev: any) => ({ ...prev, profileImage: result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const openColorPicker = (ref: React.RefObject<HTMLInputElement>) => {
     if (ref.current) ref.current.click();
   };
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      handleChange('profileImage', imageUrl);
+  const handleChange = (field: keyof typeof profile, value: string) => {
+    setProfile(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    if (profile.tagLabel.length < 2 || profile.tagLabel.length > 12) {
+      alert('Tag must be 2–12 characters.');
+      return;
+    }
+
+    const { error } = await supabase.from('profiles').insert([
+      {
+        id: uuidv4(),
+        displayName: profile.displayName,
+        username: profile.username,
+        bio: profile.bio,
+        tagLabel: profile.tagLabel,
+        badge: profile.badge,
+        themeColor: profile.themeColor,
+        innerColor: profile.innerColor,
+        profileImage: profile.profileImage
+      }
+    ]);
+
+    if (error) {
+      console.error("Supabase insert error:", error.message);
+      alert("Something went wrong saving your profile.");
+    } else {
+      alert("Profile saved successfully!");
+      router.push('/pulse');
     }
   };
 
   return (
-    <>
-      <Head>
-        <title>Create Profile – Whispr</title>
-      </Head>
-
-      <style jsx>{`
-        .container {
-          min-height: 100vh;
-          background: linear-gradient(145deg, #0a001f, #1a003f);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          padding: 2rem;
-          font-family: Orbitron, sans-serif;
-          color: white;
-        }
-
-        .form {
-          width: 100%;
-          max-width: 500px;
-          background: ${profile.innerColor};
-          border-radius: 2rem;
-          padding: 2rem;
-          box-shadow: 0 0 40px ${profile.themeColor};
-          text-align: center;
-        }
-
-        .avatar {
-          width: 100px;
-          height: 100px;
-          border-radius: 50%;
-          margin: 0 auto 1rem;
-          border: 4px solid ${profile.themeColor};
-          background: url(${profile.profileImage || '/images/default-pfp.png'}) center/cover no-repeat;
-        }
-
-        .upload-button {
-          margin-bottom: 1.5rem;
-          padding: 0.5rem 1rem;
-          background-color: ${profile.themeColor};
-          color: #111;
-          font-weight: bold;
-          border-radius: 1rem;
-          cursor: pointer;
-          font-size: 0.95rem;
-          box-shadow: 0 0 10px ${profile.themeColor};
-          transition: 0.3s;
-        }
-
-        .upload-button:hover {
-          transform: scale(1.05);
-        }
-
-        input, textarea {
-          width: 100%;
-          padding: 0.75rem;
-          margin-bottom: 1rem;
-          border-radius: 1rem;
-          border: none;
-          font-size: 1rem;
-          background: #111;
-          color: white;
-        }
-
-        .badges {
-          display: grid;
-          grid-template-columns: repeat(5, 1fr);
-          gap: 0.5rem;
-          margin-bottom: 1rem;
-        }
-
-        .badge {
-          font-size: 1.5rem;
-          padding: 0.4rem;
-          border-radius: 0.5rem;
-          cursor: pointer;
-          border: 2px solid transparent;
-          transition: all 0.2s ease;
-        }
-
-        .badge:hover {
-          transform: scale(1.15);
-        }
-
-        .badge.selected {
-          border-color: ${profile.themeColor};
-          background: #222;
-          box-shadow: 0 0 10px ${profile.themeColor};
-        }
-
-        .color-picker-btn {
-          width: 100%;
-          margin-bottom: 1rem;
-          border-radius: 1rem;
-          padding: 0.7rem;
-          font-size: 1rem;
-          border: none;
-          cursor: pointer;
-          background: ${profile.themeColor};
-          color: black;
-          box-shadow: 0 0 10px ${profile.themeColor};
-          transition: transform 0.2s;
-        }
-
-        .color-picker-btn:hover {
-          transform: scale(1.03);
-        }
-
-        .hidden {
-          display: none;
-        }
-
-        .preview {
-          background: #000;
-          border-radius: 1.5rem;
-          padding: 1.5rem;
-          margin-top: 2rem;
-          color: white;
-          box-shadow: 0 0 25px ${profile.themeColor};
-        }
-
-        .preview h2 {
-          font-size: 1.6rem;
-          margin-bottom: 0.5rem;
-        }
-
-        .preview .tagline {
-          color: #ccc;
-          font-size: 1rem;
-        }
-
-        button.save {
-          background: ${profile.themeColor};
-          color: #111;
-          padding: 0.8rem 1.6rem;
-          border-radius: 1rem;
-          font-weight: bold;
-          font-size: 1rem;
-          border: none;
-          cursor: pointer;
-          margin-top: 1.5rem;
-          box-shadow: 0 0 18px ${profile.themeColor};
-          transition: 0.3s;
-        }
-
-        button.save:hover {
-          transform: scale(1.05);
-        }
-
-        a {
-          display: inline-block;
-          margin-top: 1rem;
-          font-size: 0.85rem;
-          color: ${profile.themeColor};
-          text-decoration: underline;
-          cursor: pointer;
-        }
-      `}</style>
-
-      <div className="container">
-        <div className="form">
-          <div className="avatar" />
-          <button className="upload-button" onClick={() => fileInputRef.current.click()}>
-            Upload Profile
+    <main style={{
+      minHeight: '100vh',
+      background: '#000',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      fontFamily: 'Orbitron, sans-serif'
+    }}>
+      <div style={{
+        maxWidth: '480px',
+        width: '100%',
+        padding: '3rem 2rem',
+        borderRadius: '2rem',
+        backgroundColor: profile.innerColor || '#222',
+        boxShadow: `0 0 80px ${profile.themeColor || '#12f7ff'}`,
+        color: 'white',
+        textAlign: 'center',
+        position: 'relative'
+      }}>
+        {/* Profile Picture Upload */}
+        <div style={{
+          width: '120px',
+          height: '120px',
+          borderRadius: '50%',
+          overflow: 'hidden',
+          margin: '0 auto',
+          border: `4px solid ${profile.themeColor}`,
+          boxShadow: `0 0 20px ${profile.themeColor}`,
+          position: 'relative'
+        }}>
+          {profile.profileImage ? (
+            <img src={profile.profileImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <div style={{ width: '100%', height: '100%', backgroundColor: '#111' }} />
+          )}
+          <button onClick={() => fileInputRef.current?.click()} style={{
+            position: 'absolute',
+            bottom: '4px',
+            right: '4px',
+            backgroundColor: '#000',
+            color: '#fff',
+            fontSize: '0.6rem',
+            padding: '0.2rem 0.4rem',
+            borderRadius: '0.4rem',
+            border: 'none',
+            cursor: 'pointer'
+          }}>
+            Upload
           </button>
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
-            onChange={handleImageUpload}
-            className="hidden"
-          />
-
-          <input
-            type="text"
-            placeholder="Display Name"
-            value={profile.displayName}
-            onChange={(e) => handleChange('displayName', e.target.value)}
-          />
-
-          <input
-            type="text"
-            placeholder="Username"
-            value={profile.username}
-            onChange={(e) => handleChange('username', e.target.value)}
-          />
-
-          <textarea
-            placeholder="Status or Bio"
-            rows={2}
-            value={profile.bio}
-            onChange={(e) => handleChange('bio', e.target.value)}
-          />
-
-          <input
-            type="text"
-            placeholder="Tag Label (e.g. CULT)"
-            value={profile.tagLabel}
-            onChange={(e) => handleChange('tagLabel', e.target.value)}
-            maxLength={12}
-          />
-
-          <div className="badges">
-            {badgeOptions.map((badge) => (
-              <div
-                key={badge}
-                className={`badge ${profile.badge === badge ? 'selected' : ''}`}
-                onClick={() => handleChange('badge', badge)}
-              >
-                {badge}
-              </div>
-            ))}
-          </div>
-
-          <button className="color-picker-btn" onClick={() => openColorPicker(outerColorRef)}>
-            Pick Profile Glow
-          </button>
-          <input
-            type="color"
-            ref={outerColorRef}
-            className="hidden"
-            value={profile.themeColor}
-            onChange={(e) => handleChange('themeColor', e.target.value)}
-          />
-
-          <button className="color-picker-btn" onClick={() => openColorPicker(innerColorRef)}>
-            Pick Panel Color
-          </button>
-          <input
-            type="color"
-            ref={innerColorRef}
-            className="hidden"
-            value={profile.innerColor}
-            onChange={(e) => handleChange('innerColor', e.target.value)}
-          />
-
-          <div className="preview">
-            <h2>{profile.displayName} {profile.badge}{profile.tagLabel && profile.tagLabel.length > 0 ? profile.tagLabel : ''}</h2>
-            <div className="tagline">{profile.bio}</div>
-          </div>
-
-          <button className="save" onClick={handleSave}>Save Profile</button>
-          <a onClick={() => router.push('/')}>Return to Home</a>
+          <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} style={{ display: 'none' }} />
         </div>
+
+        {/* Input Fields */}
+        {['displayName', 'username', 'bio', 'tagLabel', 'badge'].map((field, index) => (
+          <input
+            key={index}
+            type="text"
+            placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+            value={profile[field]}
+            onChange={e => handleChange(field as keyof typeof profile, e.target.value)}
+            style={{
+              margin: '0.6rem 0',
+              padding: '0.6rem',
+              width: '100%',
+              borderRadius: '0.8rem',
+              border: 'none',
+              fontSize: '1rem',
+              outline: 'none',
+              background: '#111',
+              color: '#fff',
+              boxShadow: `0 0 6px ${profile.themeColor}`
+            }}
+          />
+        ))}
+
+        {/* Color Pickers */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', margin: '1rem 0' }}>
+          <div onClick={() => openColorPicker(themePickerRef)} style={{
+            backgroundColor: profile.themeColor,
+            width: '100%',
+            height: '2.5rem',
+            borderRadius: '0.6rem',
+            cursor: 'pointer',
+            boxShadow: `0 0 8px ${profile.themeColor}`
+          }} />
+          <div onClick={() => openColorPicker(innerPickerRef)} style={{
+            backgroundColor: profile.innerColor,
+            width: '100%',
+            height: '2.5rem',
+            borderRadius: '0.6rem',
+            cursor: 'pointer',
+            boxShadow: `0 0 8px ${profile.innerColor}`
+          }} />
+        </div>
+
+        <input type="color" ref={themePickerRef} onChange={e => handleChange('themeColor', e.target.value)} style={{ display: 'none' }} />
+        <input type="color" ref={innerPickerRef} onChange={e => handleChange('innerColor', e.target.value)} style={{ display: 'none' }} />
+
+        {/* Save Button */}
+        <button onClick={handleSave} style={{
+          backgroundColor: profile.themeColor,
+          color: '#111',
+          padding: '0.8rem 2rem',
+          borderRadius: '1.2rem',
+          fontWeight: 'bold',
+          border: 'none',
+          fontSize: '1.2rem',
+          cursor: 'pointer',
+          marginTop: '1.2rem',
+          boxShadow: `0 0 15px ${profile.themeColor}`
+        }}>
+          Save Profile
+        </button>
       </div>
-    </>
+    </main>
   );
 }
