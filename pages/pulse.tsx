@@ -1,14 +1,25 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
+interface Profile {
+  id?: string;
+  displayName?: string;
+  username?: string;
+  profileImage?: string;
+  // You can add other fields like bio, tagLabel, etc. if needed.
+}
+
 export default function PulsePage() {
-  const [profiles, setProfiles] = useState([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
 
   useEffect(() => {
     const fetchProfiles = async () => {
       const { data, error } = await supabase.from('profiles').select('*');
-      if (error) console.error('Error fetching profiles:', error.message);
-      else setProfiles(data);
+      if (error) {
+        console.error('Error fetching profiles:', error.message);
+      } else {
+        setProfiles(data as Profile[]);
+      }
     };
 
     fetchProfiles();
