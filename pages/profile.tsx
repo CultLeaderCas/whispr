@@ -11,7 +11,7 @@ export default function ProfilePage() {
     username: '',
     bio: '',
     tagLabel: '',
-    badge: '',
+    emoji: '💙',
     themeColor: '#12f7ff',
     innerColor: '#111111',
     profileImage: '',
@@ -69,9 +69,7 @@ export default function ProfilePage() {
   };
 
   const openColorPicker = (ref: React.RefObject<HTMLInputElement | null>) => {
-    if (ref.current) {
-      ref.current.click();
-    }
+    if (ref.current) ref.current.click();
   };
 
   const handleChange = (field: keyof typeof profile, value: string) => {
@@ -87,7 +85,7 @@ export default function ProfilePage() {
       username: profile.username,
       bio: profile.bio,
       tagLabel: profile.tagLabel,
-      badge: profile.badge,
+      emoji: profile.emoji,
       themeColor: profile.themeColor,
       innerColor: profile.innerColor,
       profileImage: profile.profileImage
@@ -161,7 +159,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Input Fields */}
-        {['displayName', 'username', 'bio', 'tagLabel', 'badge'].map((field, index) => (
+        {['displayName', 'username', 'bio'].map((field, index) => (
           <input
             key={index}
             type="text"
@@ -182,6 +180,42 @@ export default function ProfilePage() {
             }}
           />
         ))}
+
+        {/* Emoji Picker + Tag Label */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem' }}>
+          <input
+            type="text"
+            value={profile.emoji}
+            onChange={e => handleChange('emoji', e.target.value)}
+            maxLength={2}
+            style={{
+              width: '4rem',
+              textAlign: 'center',
+              fontSize: '1.5rem',
+              background: '#111',
+              border: 'none',
+              color: '#fff',
+              borderRadius: '0.6rem',
+              boxShadow: `0 0 6px ${profile.themeColor}`
+            }}
+          />
+          <input
+            type="text"
+            placeholder="Guild Tag"
+            value={profile.tagLabel}
+            onChange={e => handleChange('tagLabel', e.target.value)}
+            style={{
+              flexGrow: 1,
+              padding: '0.6rem',
+              borderRadius: '0.8rem',
+              border: 'none',
+              background: '#111',
+              color: '#fff',
+              fontSize: '1rem',
+              boxShadow: `0 0 6px ${profile.themeColor}`
+            }}
+          />
+        </div>
 
         {/* Availability message */}
         <p className="text-sm text-center mt-1" style={{ color: availabilityMsg.includes('taken') ? 'red' : '#12f7ff' }}>
