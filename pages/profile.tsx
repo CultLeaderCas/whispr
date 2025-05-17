@@ -50,34 +50,37 @@ export default function ProfilePage() {
     setProfile((prev: any) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async () => {
-    if (profile.tagLabel.length < 2 || profile.tagLabel.length > 12) {
-      alert('Tag must be 2–12 characters.');
-      return;
-    }
+const handleSave = async () => {
+  console.log("🔥 handleSave fired");
 
-    const { error } = await supabase.from('profiles').insert([
-      {
-        id: uuidv4(),
-        displayName: profile.displayName,
-        username: profile.username,
-        bio: profile.bio,
-        tagLabel: profile.tagLabel,
-        badge: profile.badge,
-        themeColor: profile.themeColor,
-        innerColor: profile.innerColor,
-        profileImage: profile.profileImage
-      }
-    ]);
+  if (profile.tagLabel.length < 2 || profile.tagLabel.length > 12) {
+    alert('Tag must be 2–12 characters.');
+    return;
+  }
 
-    if (error) {
-      console.error("Supabase insert error:", error.message);
-      alert("Something went wrong saving your profile.");
-    } else {
-      alert("Profile saved successfully!");
-      router.push('/pulse');
+  const { error } = await supabase.from('profiles').insert([
+    {
+      id: uuidv4(),
+      displayName: profile.displayName,
+      username: profile.username,
+      bio: profile.bio,
+      tagLabel: profile.tagLabel,
+      badge: profile.badge,
+      themeColor: profile.themeColor,
+      innerColor: profile.innerColor,
+      profileImage: profile.profileImage
     }
-  };
+  ]);
+
+  if (error) {
+    console.error("🔥 Supabase insert error:", error.message);
+    alert("Something went wrong saving your profile.");
+  } else {
+    console.log("✅ Profile saved!");
+    alert("Profile saved successfully!");
+    router.push('/pulse');
+  }
+};
 
   return (
     <main style={{
