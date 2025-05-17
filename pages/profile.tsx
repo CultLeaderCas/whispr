@@ -24,9 +24,9 @@ export default function ProfilePage() {
     }
   }, []);
 
-  const fileInputRef = useRef(null) as unknown as React.RefObject<HTMLInputElement>;
-const themePickerRef = useRef(null) as unknown as React.RefObject<HTMLInputElement>;
-const innerPickerRef = useRef(null) as unknown as React.RefObject<HTMLInputElement>;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const themePickerRef = useRef<HTMLInputElement>(null);
+  const innerPickerRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (event: any) => {
     const file = event.target.files?.[0];
@@ -40,8 +40,10 @@ const innerPickerRef = useRef(null) as unknown as React.RefObject<HTMLInputEleme
     reader.readAsDataURL(file);
   };
 
-  const openColorPicker = (ref: React.RefObject<HTMLInputElement>) => {
-    if (ref.current) ref.current.click();
+  const openColorPicker = (ref: React.RefObject<HTMLInputElement | null>) => {
+    if (ref.current) {
+      ref.current.click();
+    }
   };
 
   const handleChange = (field: keyof typeof profile, value: string) => {
