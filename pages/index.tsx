@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '@/lib/supabaseClient';
+import { JSX } from 'react/jsx-runtime';
 
 export default function Home() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [stars, setStars] = useState<JSX.Element[]>([]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,10 +32,9 @@ export default function Home() {
     }
   };
 
-  // Generate stars
-  const generateStars = () => {
-    const colors = ['#12f7ff', '#ff00ff', '#c084fc']; // blue, pink, purple
-    return Array.from({ length: 50 }).map((_, i) => {
+  useEffect(() => {
+    const colors = ['#12f7ff', '#fe019a', '#9500FF']; // cyan, pink, purple
+    const newStars = Array.from({ length: 60 }).map((_, i) => {
       const size = Math.random() * 4 + 1;
       const top = Math.random() * 100;
       const left = Math.random() * 100;
@@ -43,6 +44,7 @@ export default function Home() {
       return (
         <div
           key={i}
+          className="twinkle"
           style={{
             position: 'absolute',
             top: `${top}%`,
@@ -52,18 +54,19 @@ export default function Home() {
             backgroundColor: color,
             borderRadius: '9999px',
             opacity: 0.8,
-            animation: `twinkle ${duration}s infinite alternate`,
-            zIndex: 0,
+            animationDuration: `${duration}s`,
+            animationDelay: `${Math.random() * 4}s`,
           }}
         />
       );
     });
-  };
+    setStars(newStars);
+  }, []);
 
   return (
     <div className="relative min-h-screen bg-black flex items-center justify-center overflow-hidden font-sans text-white">
-      {/* Twinkling stars */}
-      <style jsx>{`
+      {/* GLOBAL STYLE for twinkle animation */}
+      <style global jsx>{`
         @keyframes twinkle {
           0% {
             opacity: 0.2;
@@ -74,10 +77,15 @@ export default function Home() {
             transform: scale(1.2);
           }
         }
+        .twinkle {
+          animation: twinkle infinite alternate;
+        }
       `}</style>
-      {generateStars()}
 
-      {/* Login panel */}
+      {/* Animated Stars */}
+      <div className="absolute inset-0 z-0">{stars}</div>
+
+      {/* Login Panel */}
       <div className="z-10 bg-[#111] p-8 rounded-2xl shadow-2xl border border-[#333] w-full max-w-md backdrop-blur-sm">
         <h1 className="text-4xl font-extrabold text-center text-[#12f7ff] mb-2 drop-shadow-[0_0_10px_#12f7ff]">
           Whispr
