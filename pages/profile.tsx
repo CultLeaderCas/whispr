@@ -45,7 +45,7 @@ export default function ProfilePage() {
   };
 
   const handleChange = (field: keyof typeof profile, value: string) => {
-    setProfile(prev => ({ ...prev, [field]: value }));
+    setProfile((prev: any) => ({ ...prev, [field]: value }));
   };
 
   const handleSave = async () => {
