@@ -24,9 +24,9 @@ export default function ProfilePage() {
     }
   }, []);
 
-  const fileInputRef = useRef(null) as React.RefObject<HTMLInputElement>;
-const themePickerRef = useRef(null) as React.RefObject<HTMLInputElement>;
-const innerPickerRef = useRef(null) as React.RefObject<HTMLInputElement>;
+  const fileInputRef = useRef(null) as unknown as React.RefObject<HTMLInputElement>;
+const themePickerRef = useRef(null) as unknown as React.RefObject<HTMLInputElement>;
+const innerPickerRef = useRef(null) as unknown as React.RefObject<HTMLInputElement>;
 
   const handleImageUpload = (event: any) => {
     const file = event.target.files?.[0];
