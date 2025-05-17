@@ -53,31 +53,28 @@ export default function ProfilePage() {
 const handleSave = async () => {
   console.log("🔥 handleSave fired");
 
-  if (profile.tagLabel.length < 2 || profile.tagLabel.length > 12) {
-    alert('Tag must be 2–12 characters.');
-    return;
-  }
+  const payload = {
+    id: uuidv4(),
+    displayName: profile.displayName,
+    username: profile.username,
+    bio: profile.bio,
+    tagLabel: profile.tagLabel,
+    badge: profile.badge,
+    themeColor: profile.themeColor,
+    innerColor: profile.innerColor,
+    profileImage: profile.profileImage
+  };
 
-  const { error } = await supabase.from('profiles').insert([
-    {
-      id: uuidv4(),
-      displayName: profile.displayName,
-      username: profile.username,
-      bio: profile.bio,
-      tagLabel: profile.tagLabel,
-      badge: profile.badge,
-      themeColor: profile.themeColor,
-      innerColor: profile.innerColor,
-      profileImage: profile.profileImage
-    }
-  ]);
+  console.log("📦 Sending payload:", payload);
+
+  const { data, error } = await supabase.from('profiles').insert([payload]);
 
   if (error) {
-    console.error("🔥 Supabase insert error:", error.message);
+    console.error("❌ Supabase insert error:", error); // THIS LINE is key
     alert("Something went wrong saving your profile.");
   } else {
-    console.log("✅ Profile saved!");
-    alert("Profile saved successfully!");
+    console.log("✅ Saved profile!", data);
+    alert("Profile saved!");
     router.push('/pulse');
   }
 };
