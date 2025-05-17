@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import { supabase } from "@/lib/supabaseClient";
+import { v4 as uuidv4 } from 'uuid';
 
 const badgeOptions = ['💙', '💖', '🌙', '⭐', '🎮', '👑', '🔥', '🎧', '⚡', '🧩'];
 
@@ -21,18 +23,37 @@ export default function Profile() {
     profileImage: '',
   });
 
-  const handleChange = (field, value) => {
-    setProfile(prev => ({ ...prev, [field]: value }));
-  };
+ const handleChange = (field: keyof typeof profile, value: string) => {
+  setProfile(prev => ({ ...prev, [field]: value }));
+};
 
-  const handleSave = () => {
-    if (profile.tagLabel.length < 2 || profile.tagLabel.length > 12) {
-      alert('Tag must be 2–12 characters.');
-      return;
+const handleSave = async () => {
+  if (profile.tagLabel.length < 2 || profile.tagLabel.length > 12) {
+    alert('Tag must be 2–12 characters.');
+    return;
+  }
+
+  const { error } = await supabase.from('profiles').insert([
+    {
+      displayName: profile.displayName,
+      username: profile.username,
+      bio: profile.bio,
+      tagLabel: profile.tagLabel,
+      badge: profile.badge,
+      themeColor: profile.themeColor,
+      innerColor: profile.innerColor,
+      profileImage: profile.profileImage
     }
-    localStorage.setItem('echno-profile', JSON.stringify(profile));
+  ]);
+
+  if (error) {
+    console.error("Supabase insert error:", error.message);
+    alert("Something went wrong saving your profile.");
+  } else {
+    alert("Profile saved successfully!");
     router.push('/pulse');
-  };
+  }
+};
 
   const openColorPicker = (ref) => {
     if (ref.current) ref.current.click();
