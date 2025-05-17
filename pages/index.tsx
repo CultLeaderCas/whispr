@@ -87,10 +87,10 @@ export default function Home() {
 
       {/* Login Panel */}
       <div className="z-10 bg-[#111] p-8 rounded-2xl shadow-2xl border border-[#333] w-full max-w-md backdrop-blur-sm">
-        <h1 className="text-4xl font-extrabold text-center text-[#12f7ff] mb-2 drop-shadow-[0_0_10px_#12f7ff]">
+        <h1 className="text-4xl font-extrabold text-center text-[#9500FF] mb-2 drop-shadow-[0_0_10px_#9500FF]">
           Whispr
         </h1>
-        <p className="text-center text-gray-400 mb-6">Log in to pulse</p>
+        <p className="text-center text-gray-400 mb-6">Game. Rage. Whispr.</p>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <input
@@ -106,7 +106,7 @@ export default function Home() {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 bg-[#1e1e1e] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#12f7ff]"
+            className="w-full px-4 py-2 bg-[#1e1e1e] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#fe019a]"
             required
           />
 
