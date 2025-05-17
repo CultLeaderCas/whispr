@@ -181,14 +181,10 @@ export default function ProfilePage() {
   />
 ))}
 
-/* ...emoji + tag fields stay here... */
-
-/* Availability message */
 <p className="text-sm text-center mt-1" style={{ color: availabilityMsg.includes('taken') ? 'red' : '#12f7ff' }}>
   {availabilityMsg}
 </p>
 
-/* Label for Color Pickers */
 <p style={{
   fontSize: '0.9rem',
   color: '#aaa',
@@ -196,10 +192,9 @@ export default function ProfilePage() {
   marginTop: '1rem',
   textAlign: 'center'
 }}>
-  Choose your theme
+  Shape your Gaming Aesthetic
 </p>
 
-/* Color Pickers */
 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', margin: '1rem 0' }}>
   <div onClick={() => openColorPicker(themePickerRef)} style={{
     backgroundColor: profile.themeColor,
