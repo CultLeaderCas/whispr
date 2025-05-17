@@ -17,12 +17,40 @@ export default function ProfilePage() {
     profileImage: '',
   });
 
+  const [availabilityMsg, setAvailabilityMsg] = useState('');
+
   useEffect(() => {
     const saved = localStorage.getItem('echno-profile');
     if (saved) {
       setProfile(JSON.parse(saved));
     }
   }, []);
+
+  useEffect(() => {
+    const check = async () => {
+      if (!profile.username || !profile.tagLabel) {
+        setAvailabilityMsg('');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', profile.username.trim())
+        .eq('tagLabel', profile.tagLabel.trim());
+
+      if (error) {
+        setAvailabilityMsg('Error checking availability');
+      } else if (data.length > 0) {
+        setAvailabilityMsg('That username + tag is taken 😞');
+      } else {
+        setAvailabilityMsg('✅ Available!');
+      }
+    };
+
+    const debounce = setTimeout(check, 500);
+    return () => clearTimeout(debounce);
+  }, [profile.username, profile.tagLabel]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const themePickerRef = useRef<HTMLInputElement>(null);
@@ -50,34 +78,34 @@ export default function ProfilePage() {
     setProfile((prev: any) => ({ ...prev, [field]: value }));
   };
 
-const handleSave = async () => {
-  console.log("🔥 handleSave fired");
+  const handleSave = async () => {
+    console.log("🔥 handleSave fired");
 
-  const payload = {
-    id: uuidv4(),
-    displayName: profile.displayName,
-    username: profile.username,
-    bio: profile.bio,
-    tagLabel: profile.tagLabel,
-    badge: profile.badge,
-    themeColor: profile.themeColor,
-    innerColor: profile.innerColor,
-    profileImage: profile.profileImage
+    const payload = {
+      id: uuidv4(),
+      displayName: profile.displayName,
+      username: profile.username,
+      bio: profile.bio,
+      tagLabel: profile.tagLabel,
+      badge: profile.badge,
+      themeColor: profile.themeColor,
+      innerColor: profile.innerColor,
+      profileImage: profile.profileImage
+    };
+
+    console.log("📦 Sending payload:", payload);
+
+    const { data, error } = await supabase.from('profiles').insert([payload]);
+
+    if (error) {
+      console.error("❌ Supabase insert error:", error);
+      alert("Something went wrong saving your profile.");
+    } else {
+      console.log("✅ Saved profile!", data);
+      localStorage.setItem('justSignedUp', '1');
+      router.push('/pulse');
+    }
   };
-
-  console.log("📦 Sending payload:", payload);
-
-  const { data, error } = await supabase.from('profiles').insert([payload]);
-
-  if (error) {
-    console.error("❌ Supabase insert error:", error); // THIS LINE is key
-    alert("Something went wrong saving your profile.");
-  } else {
-    console.log("✅ Saved profile!", data);
-    alert("Profile saved!");
-    router.push('/pulse');
-  }
-};
 
   return (
     <main style={{
@@ -154,6 +182,11 @@ const handleSave = async () => {
             }}
           />
         ))}
+
+        {/* Availability message */}
+        <p className="text-sm text-center mt-1" style={{ color: availabilityMsg.includes('taken') ? 'red' : '#12f7ff' }}>
+          {availabilityMsg}
+        </p>
 
         {/* Color Pickers */}
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', margin: '1rem 0' }}>
