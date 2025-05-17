@@ -1,9 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/router';
-import { supabase } from '@/lib/supabaseClient';
-import { v4 as uuidv4 } from 'uuid';
-import Toast from '@/components/toast';
-
+// ... imports stay the same
 export default function ProfilePage() {
   const router = useRouter();
 
@@ -11,8 +6,8 @@ export default function ProfilePage() {
     displayName: '',
     username: '',
     bio: '',
-    tagLabel: '',
-    badge: '',
+    guildTag: '',
+    tagEmoji: '💙',
     themeColor: '#12f7ff',
     innerColor: '#111111',
     profileImage: '',
@@ -29,7 +24,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const check = async () => {
-      if (!profile.username || !profile.tagLabel) {
+      if (!profile.username || !profile.guildTag) {
         setAvailabilityMsg('');
         return;
       }
@@ -38,12 +33,12 @@ export default function ProfilePage() {
         .from('profiles')
         .select('id')
         .eq('username', profile.username.trim())
-        .eq('tagLabel', profile.tagLabel.trim());
+        .eq('guildTag', profile.guildTag.trim());
 
       if (error) {
         setAvailabilityMsg('Error checking availability');
       } else if (data.length > 0) {
-        setAvailabilityMsg('That username + tag is taken 😞');
+        setAvailabilityMsg('That username + guild tag is taken 😞');
       } else {
         setAvailabilityMsg('✅ Available!');
       }
@@ -51,7 +46,7 @@ export default function ProfilePage() {
 
     const debounce = setTimeout(check, 500);
     return () => clearTimeout(debounce);
-  }, [profile.username, profile.tagLabel]);
+  }, [profile.username, profile.guildTag]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const themePickerRef = useRef<HTMLInputElement>(null);
@@ -70,9 +65,7 @@ export default function ProfilePage() {
   };
 
   const openColorPicker = (ref: React.RefObject<HTMLInputElement | null>) => {
-    if (ref.current) {
-      ref.current.click();
-    }
+    if (ref.current) ref.current.click();
   };
 
   const handleChange = (field: keyof typeof profile, value: string) => {
@@ -80,21 +73,16 @@ export default function ProfilePage() {
   };
 
   const handleSave = async () => {
-    console.log("🔥 handleSave fired");
-
     const payload = {
       id: uuidv4(),
       displayName: profile.displayName,
       username: profile.username,
       bio: profile.bio,
-      tagLabel: profile.tagLabel,
-      badge: profile.badge,
+      guildTag: `${profile.tagEmoji} ${profile.guildTag}`,
       themeColor: profile.themeColor,
       innerColor: profile.innerColor,
-      profileImage: profile.profileImage
+      profileImage: profile.profileImage,
     };
-
-    console.log("📦 Sending payload:", payload);
 
     const { data, error } = await supabase.from('profiles').insert([payload]);
 
@@ -102,7 +90,6 @@ export default function ProfilePage() {
       console.error("❌ Supabase insert error:", error);
       alert("Something went wrong saving your profile.");
     } else {
-      console.log("✅ Saved profile!", data);
       localStorage.setItem('justSignedUp', '1');
       router.push('/pulse');
     }
@@ -123,7 +110,7 @@ export default function ProfilePage() {
         padding: '3rem 2rem',
         borderRadius: '2rem',
         backgroundColor: profile.innerColor || '#222',
-        boxShadow: `0 0 80px ${profile.themeColor || '#12f7ff'}`,
+        boxShadow: `0 0 80px ${profile.themeColor}`,
         color: 'white',
         textAlign: 'center',
         position: 'relative'
@@ -162,31 +149,59 @@ export default function ProfilePage() {
         </div>
 
         {/* Input Fields */}
-        {['displayName', 'username', 'bio', 'tagLabel', 'badge'].map((field, index) => (
+        <input
+          type="text"
+          placeholder="Display Name"
+          value={profile.displayName}
+          onChange={e => handleChange('displayName', e.target.value)}
+          style={inputStyle(profile.themeColor)}
+        />
+
+        <input
+          type="text"
+          placeholder="Username"
+          value={profile.username}
+          onChange={e => handleChange('username', e.target.value)}
+          style={inputStyle(profile.themeColor)}
+        />
+
+        <input
+          type="text"
+          placeholder="Bio"
+          value={profile.bio}
+          onChange={e => handleChange('bio', e.target.value)}
+          style={inputStyle(profile.themeColor)}
+        />
+
+        {/* Guild Tag with Emoji Preview */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <select
+            value={profile.tagEmoji}
+            onChange={e => handleChange('tagEmoji', e.target.value)}
+            style={{ ...inputStyle(profile.themeColor), width: '4rem', textAlign: 'center', padding: '0.5rem' }}
+          >
+            {['💙', '🔥', '⭐', '🌙', '🎮', '👾', '🌀'].map((emoji, i) => (
+              <option key={i} value={emoji}>{emoji}</option>
+            ))}
+          </select>
+
           <input
-            key={index}
             type="text"
-            placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-            value={profile[field]}
-            onChange={e => handleChange(field as keyof typeof profile, e.target.value)}
-            style={{
-              margin: '0.6rem 0',
-              padding: '0.6rem',
-              width: '100%',
-              borderRadius: '0.8rem',
-              border: 'none',
-              fontSize: '1rem',
-              outline: 'none',
-              background: '#111',
-              color: '#fff',
-              boxShadow: `0 0 6px ${profile.themeColor}`
-            }}
+            placeholder="Guild Tag"
+            value={profile.guildTag}
+            onChange={e => handleChange('guildTag', e.target.value)}
+            style={{ ...inputStyle(profile.themeColor), flex: 1 }}
           />
-        ))}
+        </div>
 
         {/* Availability message */}
-        <p className="text-sm text-center mt-1" style={{ color: availabilityMsg.includes('taken') ? 'red' : '#12f7ff' }}>
+        <p style={{ color: availabilityMsg.includes('taken') ? 'red' : '#12f7ff', fontSize: '0.9rem', marginTop: '0.3rem' }}>
           {availabilityMsg}
+        </p>
+
+        {/* Preview */}
+        <p style={{ marginTop: '0.6rem', fontSize: '1rem', color: '#ccc' }}>
+          Preview: <strong>@{profile.username || 'user'}</strong> <span style={{ opacity: 0.8 }}>{profile.tagEmoji} {profile.guildTag}</span>
         </p>
 
         {/* Color Pickers */}
@@ -230,4 +245,20 @@ export default function ProfilePage() {
       </div>
     </main>
   );
+}
+
+// Reusable input style helper
+function inputStyle(shadowColor: string): React.CSSProperties {
+  return {
+    margin: '0.6rem 0',
+    padding: '0.6rem',
+    width: '100%',
+    borderRadius: '0.8rem',
+    border: 'none',
+    fontSize: '1rem',
+    outline: 'none',
+    background: '#111',
+    color: '#fff',
+    boxShadow: `0 0 6px ${shadowColor}`
+  };
 }
