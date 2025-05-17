@@ -2,6 +2,7 @@
 
 'use client';
 import React, { useState } from 'react';
+const [toast, settoast] = useState('');
 
 export default function UserPanel() {
   const [username, setUsername] = useState('');
