@@ -130,7 +130,7 @@ export default function Home() {
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-2xl transition-all duration-300 hover:scale-125"
               aria-label="Toggle password visibility"
             >
-              {showPassword ? '👁️' : '🙈'}
+              {showPassword ? '👀' : '🙈'}
             </button>
           </div>
 
