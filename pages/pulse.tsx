@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { JSX } from 'react/jsx-runtime';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function PulseLayout({ children }: { children: React.ReactNode }) {
   const [stars, setStars] = useState<JSX.Element[]>([]);
@@ -57,7 +58,75 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
 
       <div className="relative z-10 px-6 py-4 max-w-[1440px] mx-auto">
         {children}
+        <AddFriendsDropdown />
       </div>
+    </div>
+  );
+}
+
+function AddFriendsDropdown() {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (query.trim() === '') {
+        setResults([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('username, displayName, profileImage')
+        .ilike('username', `%${query}%`);
+
+      if (!error) setResults(data || []);
+    };
+
+    const debounce = setTimeout(fetchUsers, 300);
+    return () => clearTimeout(debounce);
+  }, [query]);
+
+  return (
+    <div className="mt-6 relative w-full max-w-md">
+      <button
+        onClick={() => setShowDropdown(!showDropdown)}
+        className="bg-[#12f7ff] text-[#111] font-bold px-5 py-2 rounded-xl hover:bg-[#0fd0d0] transition shadow-lg"
+      >
+        ➕ Add Friend by Username
+      </button>
+
+      {showDropdown && (
+        <div className="mt-3 bg-[#111] border border-[#333] rounded-xl p-4 shadow-xl backdrop-blur-sm">
+          <input
+            type="text"
+            placeholder="Search username…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full px-4 py-2 mb-3 bg-[#1e1e1e] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#9500FF]"
+          />
+
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            {results.map((user, index) => (
+              <div key={index} className="flex items-center bg-[#1a1a1a] p-3 rounded-xl hover:bg-[#222] transition">
+                <img
+                  src={user.profileImage || '/default-avatar.png'}
+                  alt="Profile"
+                  className="w-12 h-12 rounded-full mr-3 object-cover border-2 border-[#9500FF] shadow"
+                />
+                <div>
+                  <p className="text-white font-semibold">{user.displayName}</p>
+                  <p className="text-sm text-[#aaa]">@{user.username}</p>
+                </div>
+              </div>
+            ))}
+            {results.length === 0 && query && (
+              <p className="text-sm text-[#888] italic text-center">No users found.</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
