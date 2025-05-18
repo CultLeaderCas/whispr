@@ -11,7 +11,7 @@ export default function ProfilePage() {
     username: '',
     bio: '',
     tagLabel: '',
-    emoji: '💙', '🪼', '🕷️',
+    emoji: '💙', 
     themeColor: '#fe019a',
     innerColor: '#9500FF',
     profileImage: '',
