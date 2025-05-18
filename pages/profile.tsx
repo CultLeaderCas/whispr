@@ -11,7 +11,7 @@ export default function ProfilePage() {
     username: '',
     bio: '',
     tagLabel: '',
-    emoji: '💙', 
+    emoji: '💙',
     themeColor: '#fe019a',
     innerColor: '#9500FF',
     profileImage: '',
@@ -77,8 +77,6 @@ export default function ProfilePage() {
   };
 
   const handleSave = async () => {
-    console.log("🔥 handleSave fired");
-
     const payload = {
       id: uuidv4(),
       displayName: profile.displayName,
@@ -88,18 +86,15 @@ export default function ProfilePage() {
       emoji: profile.emoji,
       themeColor: profile.themeColor,
       innerColor: profile.innerColor,
-      profileImage: profile.profileImage
+      profileImage: profile.profileImage,
     };
 
-    console.log("📦 Sending payload:", payload);
-
-    const { data, error } = await supabase.from('profiles').insert([payload]);
+    const { error } = await supabase.from('profiles').insert([payload]);
 
     if (error) {
       console.error("❌ Supabase insert error:", error);
       alert("Something went wrong saving your profile.");
     } else {
-      console.log("✅ Saved profile!", data);
       localStorage.setItem('justSignedUp', '1');
       router.push('/pulse');
     }
@@ -119,103 +114,109 @@ export default function ProfilePage() {
         width: '100%',
         padding: '3rem 2rem',
         borderRadius: '2rem',
-        backgroundColor: profile.innerColor || '#222',
-        boxShadow: `0 0 80px ${profile.themeColor || '#12f7ff'}`,
+        backgroundColor: profile.innerColor,
+        boxShadow: `0 0 80px ${profile.themeColor}`,
         color: 'white',
         textAlign: 'center',
         position: 'relative'
       }}>
-       {/* Profile Picture Upload */}
-<div style={{
-  width: '120px',
-  height: '120px',
-  borderRadius: '50%',
-  overflow: 'hidden',
-  margin: '0 auto 1rem',
-  border: `4px solid ${profile.themeColor}`,
-  boxShadow: `0 0 20px ${profile.themeColor}`,
-  position: 'relative'
-}}>
-  {profile.profileImage ? (
-    <img src={profile.profileImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-  ) : (
-    <div style={{ width: '100%', height: '100%', backgroundColor: '#111' }} />
-  )}
-  <button onClick={() => fileInputRef.current?.click()} style={{
-    position: 'absolute',
-    bottom: '4px',
-    right: '4px',
-    backgroundColor: '#000',
-    color: '#fff',
-    fontSize: '0.6rem',
-    padding: '0.2rem 0.4rem',
-    borderRadius: '0.4rem',
-    border: 'none',
-    cursor: 'pointer'
-  }}>
-    Upload
-  </button>
-  <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} style={{ display: 'none' }} />
-</div>
+        {/* Profile Picture Upload */}
+        <div style={{
+          width: '120px',
+          height: '120px',
+          borderRadius: '50%',
+          overflow: 'hidden',
+          margin: '0 auto',
+          border: `4px solid ${profile.themeColor}`,
+          boxShadow: `0 0 20px ${profile.themeColor}`,
+          position: 'relative'
+        }}>
+          {profile.profileImage ? (
+            <img src={profile.profileImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <div style={{ width: '100%', height: '100%', backgroundColor: '#111' }} />
+          )}
+        </div>
 
-{/* Input Fields */}
-{['displayName', 'username', 'bio'].map((field, index) => (
-  <input
-    key={index}
-    type="text"
-    placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-    value={profile[field]}
-    onChange={e => handleChange(field as keyof typeof profile, e.target.value)}
-    style={{
-      margin: '0.6rem 0',
-      padding: '0.6rem',
-      width: '100%',
-      borderRadius: '0.8rem',
-      border: 'none',
-      fontSize: '1rem',
-      outline: 'none',
-      background: '#111',
-      color: '#fff',
-      boxShadow: `0 0 6px ${profile.themeColor}`
-    }}
-  />
-))}
+        <button onClick={() => fileInputRef.current?.click()} style={{
+          marginTop: '0.6rem',
+          backgroundColor: '#111',
+          color: profile.themeColor,
+          fontSize: '0.8rem',
+          padding: '0.4rem 1rem',
+          borderRadius: '0.6rem',
+          border: `1px solid ${profile.themeColor}`,
+          cursor: 'pointer',
+          boxShadow: `0 0 6px ${profile.themeColor}`
+        }}>
+          Upload Photo
+        </button>
+        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} style={{ display: 'none' }} />
 
-<p className="text-sm text-center mt-1" style={{ color: availabilityMsg.includes('taken') ? 'red' : '#12f7ff' }}>
-  {availabilityMsg}
-</p>
+        {/* Input Fields */}
+        {['displayName', 'username', 'bio'].map((field, index) => (
+          <input
+            key={index}
+            type="text"
+            placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+            value={profile[field]}
+            onChange={e => handleChange(field as keyof typeof profile, e.target.value)}
+            style={{
+              margin: '0.6rem 0',
+              padding: '0.6rem',
+              width: '100%',
+              borderRadius: '0.8rem',
+              border: 'none',
+              fontSize: '1rem',
+              outline: 'none',
+              background: '#111',
+              color: '#fff',
+              boxShadow: `0 0 6px ${profile.themeColor}`
+            }}
+          />
+        ))}
 
-<p style={{
-  fontSize: '0.9rem',
-  color: '#aaa',
-  marginBottom: '0.4rem',
-  marginTop: '1rem',
-  textAlign: 'center'
-}}>
-  Shape your Gaming Aesthetic
-</p>
+        {/* Availability */}
+        <p className="text-sm text-center mt-1" style={{ color: availabilityMsg.includes('taken') ? 'red' : '#12f7ff' }}>
+          {availabilityMsg}
+        </p>
 
-<div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', margin: '1rem 0' }}>
-  <div onClick={() => openColorPicker(themePickerRef)} style={{
-    backgroundColor: profile.themeColor,
-    width: '100%',
-    height: '2.5rem',
-    borderRadius: '0.6rem',
-    cursor: 'pointer',
-    boxShadow: `0 0 8px ${profile.themeColor}`
-  }} />
-  <div onClick={() => openColorPicker(innerPickerRef)} style={{
-    backgroundColor: profile.innerColor,
-    width: '100%',
-    height: '2.5rem',
-    borderRadius: '0.6rem',
-    cursor: 'pointer',
-    boxShadow: `0 0 8px ${profile.innerColor}`
-  }} />
-</div>
+        {/* Color Picker Label */}
+        <p style={{
+          fontSize: '0.9rem',
+          color: '#aaa',
+          marginBottom: '0.4rem',
+          marginTop: '1rem'
+        }}>
+          Shape your Gaming Aesthetic
+        </p>
 
-        {/* Emoji Picker + Tag Label */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem' }}>
+        {/* Color Pickers */}
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+          <div onClick={() => openColorPicker(themePickerRef)} style={{
+            backgroundColor: profile.themeColor,
+            width: '100%',
+            height: '2.5rem',
+            borderRadius: '0.6rem',
+            cursor: 'pointer',
+            boxShadow: `0 0 8px ${profile.themeColor}`
+          }} />
+          <div onClick={() => openColorPicker(innerPickerRef)} style={{
+            backgroundColor: profile.innerColor,
+            width: '100%',
+            height: '2.5rem',
+            borderRadius: '0.6rem',
+            border: '2px solid #333',
+            cursor: 'pointer',
+            boxShadow: `0 0 8px ${profile.innerColor}`
+          }} />
+        </div>
+
+        <input type="color" ref={themePickerRef} onChange={e => handleChange('themeColor', e.target.value)} style={{ display: 'none' }} />
+        <input type="color" ref={innerPickerRef} onChange={e => handleChange('innerColor', e.target.value)} style={{ display: 'none' }} />
+
+        {/* Emoji & Tag */}
+        <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem' }}>
           <input
             type="text"
             value={profile.emoji}
@@ -250,14 +251,6 @@ export default function ProfilePage() {
           />
         </div>
 
-        {/* Availability message */}
-        <p className="text-sm text-center mt-1" style={{ color: availabilityMsg.includes('taken') ? 'red' : '#12f7ff' }}>
-          {availabilityMsg}
-        </p>
-
-        <input type="color" ref={themePickerRef} onChange={e => handleChange('themeColor', e.target.value)} style={{ display: 'none' }} />
-        <input type="color" ref={innerPickerRef} onChange={e => handleChange('innerColor', e.target.value)} style={{ display: 'none' }} />
-
         {/* Save Button */}
         <button onClick={handleSave} style={{
           backgroundColor: profile.themeColor,
@@ -268,7 +261,6 @@ export default function ProfilePage() {
           border: 'none',
           fontSize: '1.2rem',
           cursor: 'pointer',
-          marginTop: '1.2rem',
           boxShadow: `0 0 15px ${profile.themeColor}`
         }}>
           Save Profile
