@@ -10,6 +10,7 @@ export default function Home() {
   const [message, setMessage] = useState('');
   const [stars, setStars] = useState<JSX.Element[]>([]);
   const [showSignUp, setShowSignUp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // 👈 NEW
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,18 +24,18 @@ export default function Home() {
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setMessage('');
-  const { data, error } = await supabase.auth.signUp({ email, password });
+    e.preventDefault();
+    setMessage('');
+    const { data, error } = await supabase.auth.signUp({ email, password });
 
-  if (error) {
-    setMessage(error.message);
-  } else if (data.user) {
-    router.push('/profile');
-  } else {
-    setMessage('Check your email to confirm your account!');
-  }
-};
+    if (error) {
+      setMessage(error.message);
+    } else if (data.user) {
+      router.push('/profile');
+    } else {
+      setMessage('Check your email to confirm your account!');
+    }
+  };
 
   const handleForgotPassword = async () => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -113,14 +114,24 @@ export default function Home() {
             className="w-full px-4 py-2 bg-[#1e1e1e] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#12f7ff]"
             required
           />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 bg-[#1e1e1e] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#fe019a]"
-            required
-          />
+
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-2 bg-[#1e1e1e] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#fe019a] pr-12"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-sm text-[#ccc] hover:text-[#fff]"
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
 
           {message && <p className="text-sm text-red-400 text-center">{message}</p>}
 
