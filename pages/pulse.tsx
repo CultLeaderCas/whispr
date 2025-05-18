@@ -1,67 +1,63 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { JSX } from 'react/jsx-runtime';
 
-interface Profile {
-  id?: string;
-  displayName?: string;
-  username?: string;
-  profileImage?: string;
-  // You can add other fields like bio, tagLabel, etc. if needed.
-}
-
-export default function PulsePage() {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+export default function PulseLayout({ children }: { children: React.ReactNode }) {
+  const [stars, setStars] = useState<JSX.Element[]>([]);
 
   useEffect(() => {
-    const fetchProfiles = async () => {
-      const { data, error } = await supabase.from('profiles').select('*');
-      if (error) {
-        console.error('Error fetching profiles:', error.message);
-      } else {
-        setProfiles(data as Profile[]);
-      }
-    };
+    const colors = ['#12f7ff', '#fe019a', '#9500FF'];
+    const newStars = Array.from({ length: 70 }).map((_, i) => {
+      const size = Math.random() * 3 + 1;
+      const top = Math.random() * 100;
+      const left = Math.random() * 100;
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const duration = Math.random() * 4 + 2;
 
-    fetchProfiles();
+      return (
+        <div
+          key={i}
+          className="twinkle"
+          style={{
+            position: 'absolute',
+            top: `${top}%`,
+            left: `${left}%`,
+            width: `${size}px`,
+            height: `${size}px`,
+            backgroundColor: color,
+            borderRadius: '50%',
+            opacity: 0.8,
+            animationDuration: `${duration}s`,
+            animationDelay: `${Math.random() * 5}s`
+          }}
+        />
+      );
+    });
+    setStars(newStars);
   }, []);
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white font-sans">
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 bg-[#1e1f22] h-screen p-4">
-          <h2 className="text-xl font-bold mb-4">Whispr</h2>
-          <nav>
-            <ul>
-              <li className="mb-2">Friends</li>
-              <li className="mb-2">Pulse</li>
-              <li className="mb-2">Settings</li>
-            </ul>
-          </nav>
-        </aside>
+    <div className="relative min-h-screen bg-black overflow-hidden font-sans text-white">
+      <style jsx global>{`
+        @keyframes twinkle {
+          0% {
+            opacity: 0.3;
+            transform: scale(0.8);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1.2);
+          }
+        }
+        .twinkle {
+          animation: twinkle infinite alternate ease-in-out;
+        }
+      `}</style>
 
-        {/* Content */}
-        <section className="flex-1 p-6">
-          <h1 className="text-2xl font-semibold mb-4">Online Users</h1>
-          <div className="space-y-4">
-            {profiles.map((profile, index) => (
-              <div key={index} className="flex items-center bg-[#2c2f33] p-4 rounded-lg shadow">
-                <div className="w-12 h-12 bg-[#444] rounded-full overflow-hidden mr-4">
-                  {profile.profileImage ? (
-                    <img src={profile.profileImage} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-[#666]" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-lg font-medium">{profile.displayName || 'Anonymous'}</p>
-                  <p className="text-sm text-gray-400">@{profile.username}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+      <div className="absolute inset-0 z-0">{stars}</div>
+
+      <div className="relative z-10 px-6 py-4 max-w-[1440px] mx-auto">
+        {children}
       </div>
-    </main>
+    </div>
   );
 }
