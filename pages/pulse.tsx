@@ -68,32 +68,51 @@ function AddFriendsDropdown() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
+  const [adding, setAdding] = useState<string | null>(null);
 
   useEffect(() => {
-   const fetchUsers = async () => {
-  const search = query.trim().toLowerCase();
-  if (search === '') {
-    setResults([]);
-    return;
-  }
+    const fetchUsers = async () => {
+      const search = query.trim().toLowerCase();
+      if (search === '') {
+        setResults([]);
+        return;
+      }
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*') // log everything
-    .or(`username.ilike.%${search}%,displayName.ilike.%${search}%`);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`username.ilike.%${search}%,displayName.ilike.%${search}%`);
 
-  if (error) {
-    console.error('❌ Supabase Error:', error.message);
-    setResults([]);
-  } else {
-    console.log('✅ Matching rows:', data);
-    setResults(data || []);
-  }
-};
+      if (error) {
+        console.error('❌ Supabase Error:', error.message);
+        setResults([]);
+      } else {
+        setResults(data || []);
+      }
+    };
 
     const debounce = setTimeout(fetchUsers, 300);
     return () => clearTimeout(debounce);
   }, [query]);
+
+  // Handler to add friend (replace with your logic/table as needed)
+  const handleAddFriend = async (userId: string) => {
+    setAdding(userId);
+    const { error } = await supabase
+      .from('friend_requests') // Make sure this table exists!
+      .insert([{ to: userId }]);
+    setAdding(null);
+    if (error) {
+      alert('Failed to send friend request.');
+    } else {
+      alert('Friend request sent!');
+    }
+  };
+
+  // Handler to view profile (navigate to /profile/[id])
+  const handleViewProfile = (userId: string) => {
+    window.location.href = `/profile/${userId}`;
+  };
 
   return (
     <div className="mt-6 relative w-full max-w-md">
@@ -122,10 +141,23 @@ function AddFriendsDropdown() {
                   alt="Profile"
                   className="w-12 h-12 rounded-full mr-3 object-cover border-2 border-[#9500FF] shadow"
                 />
-                <div>
+                <div className="flex-1">
                   <p className="text-white font-semibold">{user.displayName}</p>
                   <p className="text-sm text-[#aaa]">@{user.username}</p>
                 </div>
+                <button
+                  className="ml-2 px-3 py-1 bg-[#12f7ff] text-[#111] rounded-lg font-bold hover:bg-[#0fd0d0] transition"
+                  disabled={adding === user.id}
+                  onClick={() => handleAddFriend(user.id)}
+                >
+                  {adding === user.id ? 'Adding...' : 'Add'}
+                </button>
+                <button
+                  className="ml-2 px-3 py-1 bg-[#9500FF] text-white rounded-lg font-bold hover:bg-[#7a00cc] transition"
+                  onClick={() => handleViewProfile(user.id)}
+                >
+                  View
+                </button>
               </div>
             ))}
 
