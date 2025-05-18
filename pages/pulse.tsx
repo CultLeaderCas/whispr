@@ -71,7 +71,9 @@ function AddFriendsDropdown() {
 
   useEffect(() => {
     const fetchUsers = async () => {
-      if (query.trim() === '') {
+      const search = query.trim().toLowerCase();
+
+      if (search === '') {
         setResults([]);
         return;
       }
@@ -79,9 +81,15 @@ function AddFriendsDropdown() {
       const { data, error } = await supabase
         .from('profiles')
         .select('username, displayName, profileImage')
-        .ilike('username', `%${query}%`);
+        .ilike('username', `%${search}%`);
 
-      if (!error) setResults(data || []);
+      if (error) {
+        console.error('❌ Supabase Error:', error.message);
+        setResults([]);
+      } else {
+        console.log('✅ Found users:', data);
+        setResults(data || []);
+      }
     };
 
     const debounce = setTimeout(fetchUsers, 300);
@@ -121,6 +129,7 @@ function AddFriendsDropdown() {
                 </div>
               </div>
             ))}
+
             {results.length === 0 && query && (
               <p className="text-sm text-[#888] italic text-center">No users found.</p>
             )}
