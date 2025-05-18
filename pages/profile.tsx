@@ -255,26 +255,6 @@ export default function ProfilePage() {
           {availabilityMsg}
         </p>
 
-        {/* Color Pickers */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', margin: '1rem 0' }}>
-          <div onClick={() => openColorPicker(themePickerRef)} style={{
-            backgroundColor: profile.themeColor,
-            width: '100%',
-            height: '2.5rem',
-            borderRadius: '0.6rem',
-            cursor: 'pointer',
-            boxShadow: `0 0 8px ${profile.themeColor}`
-          }} />
-          <div onClick={() => openColorPicker(innerPickerRef)} style={{
-            backgroundColor: profile.innerColor,
-            width: '100%',
-            height: '2.5rem',
-            borderRadius: '0.6rem',
-            cursor: 'pointer',
-            boxShadow: `0 0 8px ${profile.innerColor}`
-          }} />
-        </div>
-
         <input type="color" ref={themePickerRef} onChange={e => handleChange('themeColor', e.target.value)} style={{ display: 'none' }} />
         <input type="color" ref={innerPickerRef} onChange={e => handleChange('innerColor', e.target.value)} style={{ display: 'none' }} />
 
