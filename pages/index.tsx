@@ -1,61 +1,16 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { supabase } from '@/lib/supabaseClient';
-import { JSX } from 'react/jsx-runtime';
+import React, { useEffect, useState } from 'react';
 
-export default function Home() {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [message, setMessage] = useState('');
+export default function PulsePage() {
   const [stars, setStars] = useState<JSX.Element[]>([]);
-  const [showSignUp, setShowSignUp] = useState(false);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setMessage(error.message);
-    } else {
-      router.push('/pulse');
-    }
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage('');
-    const { data, error } = await supabase.auth.signUp({ email, password });
-
-    if (error) {
-      setMessage(error.message);
-    } else if (data.user) {
-      router.push('/profile');
-    } else {
-      setMessage('Check your email to confirm your account!');
-    }
-  };
-
-  const handleForgotPassword = async () => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://whispr-h5lvqmnox-cas-projects-8f91dbd9.vercel.app/reset',
-    });
-    if (error) {
-      setMessage('Error: ' + error.message);
-    } else {
-      setMessage('Password reset email sent!');
-    }
-  };
 
   useEffect(() => {
     const colors = ['#12f7ff', '#fe019a', '#9500FF'];
-    const newStars = Array.from({ length: 60 }).map((_, i) => {
-      const size = Math.random() * 4 + 1;
+    const newStars = Array.from({ length: 50 }).map((_, i) => {
+      const size = Math.random() * 3 + 1;
       const top = Math.random() * 100;
       const left = Math.random() * 100;
       const color = colors[Math.floor(Math.random() * colors.length)];
-      const duration = Math.random() * 3 + 2;
+      const duration = Math.random() * 4 + 2;
 
       return (
         <div
@@ -80,8 +35,8 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="relative min-h-screen bg-black flex items-center justify-center overflow-hidden font-sans text-white">
-      <style global jsx>{`
+    <div className="relative min-h-screen bg-black text-white font-sans overflow-hidden">
+      <style jsx global>{`
         @keyframes twinkle {
           0% {
             opacity: 0.2;
@@ -99,73 +54,37 @@ export default function Home() {
 
       <div className="absolute inset-0 z-0">{stars}</div>
 
-      <div className="z-10 bg-[#111] p-8 rounded-2xl shadow-2xl border border-[#333] w-full max-w-md backdrop-blur-sm">
-        <h1 className="text-4xl font-extrabold text-center text-[#9500FF] mb-2 drop-shadow-[0_0_10px_#9500FF]">
-          Whispr
+      <main className="relative z-10 flex flex-col items-center justify-start min-h-screen p-6">
+        <h1 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#fe019a] to-[#12f7ff] drop-shadow-xl mb-8">
+          The Pulse Hub
         </h1>
-        <p className="text-center text-gray-400 mb-6">Game. Rage. Whispr.</p>
 
-        <form onSubmit={showSignUp ? handleSignUp : handleLogin} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 bg-[#1e1e1e] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#12f7ff]"
-            required
-          />
-
-          {/* Password Input with Animated Eye Emoji */}
-          <div className="relative mb-4">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 pr-12 rounded-xl bg-[#111] text-white outline-none border border-[#333] shadow focus:ring-2 focus:ring-[#fe019a]"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-2xl transition-all duration-300 hover:scale-125"
-              aria-label="Toggle password visibility"
-            >
-              {showPassword ? '👀' : '🙈'}
-            </button>
-          </div>
-
-          {message && <p className="text-sm text-red-400 text-center">{message}</p>}
-
-          <button
-            type="submit"
-            className="w-full bg-[#12f7ff] text-[#111] font-bold py-2 px-4 rounded-xl hover:bg-[#0fd0d0] transition"
-          >
-            {showSignUp ? 'Sign Up' : 'Login'}
+        {/* Social Section */}
+        <section className="bg-[#111] border border-[#333] rounded-2xl p-6 w-full max-w-4xl shadow-lg backdrop-blur-sm">
+          <h2 className="text-3xl font-bold mb-4 text-[#fe019a]">Friends Online</h2>
+          <ul className="space-y-2">
+            <li className="flex justify-between items-center px-4 py-2 bg-[#1e1e1e] rounded-lg shadow text-white hover:bg-[#2a2a2a] transition">
+              <span className="text-lg">ArcRunner</span>
+              <span className="text-sm text-green-400">Online</span>
+            </li>
+            <li className="flex justify-between items-center px-4 py-2 bg-[#1e1e1e] rounded-lg shadow text-white hover:bg-[#2a2a2a] transition">
+              <span className="text-lg">Nebula99</span>
+              <span className="text-sm text-green-400">Online</span>
+            </li>
+            <li className="flex justify-between items-center px-4 py-2 bg-[#1e1e1e] rounded-lg shadow text-white hover:bg-[#2a2a2a] transition">
+              <span className="text-lg">PhantomXP</span>
+              <span className="text-sm text-yellow-300">Idle</span>
+            </li>
+            <li className="flex justify-between items-center px-4 py-2 bg-[#1e1e1e] rounded-lg shadow text-white hover:bg-[#2a2a2a] transition">
+              <span className="text-lg">StarKnight</span>
+              <span className="text-sm text-gray-400">Offline</span>
+            </li>
+          </ul>
+          <button className="mt-6 w-full py-2 bg-[#fe019a] text-black font-bold rounded-xl hover:bg-pink-600 transition shadow-lg">
+            + Join Game
           </button>
-
-          {!showSignUp && (
-            <button
-              type="button"
-              onClick={handleForgotPassword}
-              className="text-sm text-[#aaa] hover:text-[#12f7ff] transition mt-2 block mx-auto"
-            >
-              Forgot password?
-            </button>
-          )}
-        </form>
-
-        <div className="text-center mt-4">
-          <button
-            onClick={() => {
-              setMessage('');
-              setShowSignUp(!showSignUp);
-            }}
-            className="text-sm text-[#aaa] hover:text-[#fe019a] transition"
-          >
-            {showSignUp ? 'Already have an account? Log in' : 'New here? Sign up'}
-          </button>
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 }
