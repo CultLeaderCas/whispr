@@ -1,36 +1,52 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-
-type Star = { top: string; left: string; size: number; delay: number; color: string };
+import { supabase } from '@/lib/supabaseClient';
 
 export default function Join() {
-  const [username, setUsername] = useState('');
   const router = useRouter();
-  const [stars, setStars] = useState<Star[]>([]);
+  const [username, setUsername] = useState('');
+  const [stars, setStars] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const colors = ['#12f7ff', '#9500FF', '#fe019a'];
-    const generated: Star[] = [];
-    const count = 100;
-
-    for (let i = 0; i < count; i++) {
-      generated.push({
-        top: `${Math.random() * 100}vh`,
-        left: `${Math.random() * 100}vw`,
-        size: Math.random() * 2 + 1,
-        delay: Math.random() * 5,
-        color: colors[Math.floor(Math.random() * colors.length)],
+    const generateStars = () => {
+      const starArray = Array.from({ length: 70 }).map(() => {
+        const size = Math.random() * 2 + 1;
+        return {
+          top: `${Math.random() * 100}%`,
+          left: `${Math.random() * 100}%`,
+          size,
+          color: ['#12f7ff', '#fe019a', '#9500FF'][Math.floor(Math.random() * 3)],
+          delay: Math.random() * 4
+        };
       });
-    }
+      setStars(starArray);
+    };
 
-    setStars(generated);
+    generateStars();
   }, []);
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (!username.trim()) return alert("Please enter a name to join the signal.");
 
+    setLoading(true);
+
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      alert("Could not fetch logged-in user. Please try again.");
+      console.error('User fetch error:', userError?.message);
+      setLoading(false);
+      return;
+    }
+
     const profile = {
+      id: user.id,
+      email: user.email,
       username,
       displayName: username,
       profileImage: '',
@@ -38,8 +54,17 @@ export default function Join() {
       innerColor: '#111',
       bio: '',
       badge: '💫',
-      tag: '0001'
+      tag: '0001',
     };
+
+    const { error: profileError } = await supabase.from('profiles').upsert([profile]);
+
+    if (profileError) {
+      alert("Profile creation failed.");
+      console.error('Profile insert error:', profileError.message);
+      setLoading(false);
+      return;
+    }
 
     localStorage.setItem('echno-profile', JSON.stringify(profile));
     router.push('/profileview');
@@ -145,6 +170,7 @@ export default function Join() {
 
           <button
             onClick={handleJoin}
+            disabled={loading}
             style={{
               width: '100%',
               padding: '0.9rem',
@@ -155,10 +181,11 @@ export default function Join() {
               backgroundColor: '#fe019a',
               color: '#111',
               cursor: 'pointer',
-              boxShadow: '0 0 15px #fe019a'
+              boxShadow: '0 0 15px #fe019a',
+              opacity: loading ? 0.6 : 1
             }}
           >
-            Enter the Signal
+            {loading ? 'Joining...' : 'Enter the Signal'}
           </button>
         </div>
       </main>
