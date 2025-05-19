@@ -1,26 +1,195 @@
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
+import { JSX } from 'react/jsx-runtime';
 import { supabase } from '@/lib/supabaseClient';
 
-export default function ProfilePage() {
-  const router = useRouter();
+export default function PulseLayout({ children }: { children: React.ReactNode }) {
+  const [stars, setStars] = useState<JSX.Element[]>([]);
 
-  const [profile, setProfile] = useState<any>({
-    displayName: '',
-    username: '',
-    bio: '',
-    tagLabel: '',
-    emoji: '💙',
-    themeColor: '#fe019a',
-    innerColor: '#9500FF',
-    profileImage: '',
-  });
-
-  const [availabilityMsg, setAvailabilityMsg] = useState('');
-
-  // 🧠 Fetch saved profile on mount (from Supabase if logged in)
   useEffect(() => {
-    const loadProfile = async () => {
+    const colors = ['#12f7ff', '#fe019a', '#9500FF'];
+    const newStars = Array.from({ length: 70 }).map((_, i) => {
+      const size = Math.random() * 3 + 1;
+      const top = Math.random() * 100;
+      const left = Math.random() * 100;
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const duration = Math.random() * 4 + 2;
+
+      return (
+        <div
+          key={i}
+          className="twinkle"
+          style={{
+            position: 'absolute',
+            top: `${top}%`,
+            left: `${left}%`,
+            width: `${size}px`,
+            height: `${size}px`,
+            backgroundColor: color,
+            borderRadius: '50%',
+            opacity: 0.8,
+            animationDuration: `${duration}s`,
+            animationDelay: `${Math.random() * 5}s`
+          }}
+        />
+      );
+    });
+    setStars(newStars);
+  }, []);
+
+  return (
+    <div className="relative min-h-screen bg-black overflow-hidden font-sans text-white">
+      <style jsx global>{`
+        @keyframes twinkle {
+          0% {
+            opacity: 0.3;
+            transform: scale(0.8);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1.2);
+          }
+        }
+        .twinkle {
+          animation: twinkle infinite alternate ease-in-out;
+        }
+      `}</style>
+
+      <div className="absolute inset-0 z-0">{stars}</div>
+
+      <div className="relative z-10 px-6 py-4 max-w-[1440px] mx-auto">
+        {children}
+        <AddFriendsDropdown />
+        <MyProfileCorner />
+      </div>
+    </div>
+  );
+}
+
+function AddFriendsDropdown() {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<any[]>([]);
+  const [adding, setAdding] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const search = query.trim().toLowerCase();
+      if (search === '') {
+        setResults([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`username.ilike.%${search}%,displayName.ilike.%${search}%`);
+
+      if (error) {
+        console.error('❌ Supabase Error:', error.message);
+        setResults([]);
+      } else {
+        setResults(data || []);
+      }
+    };
+
+    const debounce = setTimeout(fetchUsers, 300);
+    return () => clearTimeout(debounce);
+  }, [query]);
+
+  const handleAddFriend = async (toUserId: string) => {
+    setAdding(toUserId);
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      alert('You must be logged in to send friend requests.');
+      setAdding(null);
+      return;
+    }
+
+    const { error } = await supabase
+      .from('friend_requests')
+      .insert([{ from: user.id, to: toUserId, status: 'pending' }]);
+
+    setAdding(null);
+
+    if (error) {
+      console.error('❌ Add friend error:', error.message);
+      alert('Failed to send friend request.');
+    } else {
+      alert('✅ Friend request sent!');
+    }
+  };
+
+  const handleViewProfile = (userId: string) => {
+    window.location.href = `/profile/${userId}`;
+  };
+
+  return (
+    <div className="mt-6 relative w-full max-w-md">
+      <button
+        onClick={() => setShowDropdown(!showDropdown)}
+        className="bg-[#12f7ff] text-[#111] font-bold px-5 py-2 rounded-xl hover:bg-[#0fd0d0] transition shadow-lg"
+      >
+        ➕ Add Friend by Username
+      </button>
+
+      {showDropdown && (
+        <div className="mt-3 bg-[#111] border border-[#333] rounded-xl p-4 shadow-xl backdrop-blur-sm">
+          <input
+            type="text"
+            placeholder="Search username…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full px-4 py-2 mb-3 bg-[#1e1e1e] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#9500FF]"
+          />
+
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            {results.map((user, index) => (
+              <div key={index} className="flex items-center bg-[#1a1a1a] p-3 rounded-xl hover:bg-[#222] transition">
+                <img
+                  src={user.profileImage || '/default-avatar.png'}
+                  alt="Profile"
+                  className="w-12 h-12 rounded-full mr-3 object-cover border-2 border-[#9500FF] shadow"
+                />
+                <div className="flex-1">
+                  <p className="text-white font-semibold">{user.displayName}</p>
+                  <p className="text-sm text-[#aaa]">@{user.username}</p>
+                </div>
+                <button
+                  className="ml-2 px-3 py-1 bg-[#12f7ff] text-[#111] rounded-lg font-bold hover:bg-[#0fd0d0] transition"
+                  disabled={adding === user.id}
+                  onClick={() => handleAddFriend(user.id)}
+                >
+                  {adding === user.id ? 'Adding...' : 'Add'}
+                </button>
+                <button
+                  className="ml-2 px-3 py-1 bg-[#9500FF] text-white rounded-lg font-bold hover:bg-[#7a00cc] transition"
+                  onClick={() => handleViewProfile(user.id)}
+                >
+                  View
+                </button>
+              </div>
+            ))}
+
+            {results.length === 0 && query && (
+              <p className="text-sm text-[#888] italic text-center">No users found.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MyProfileCorner() {
+  const [profile, setProfile] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchMyProfile = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -33,275 +202,32 @@ export default function ProfilePage() {
         .eq('id', user.id)
         .single();
 
-      if (data) setProfile(data);
+      if (!error) setProfile(data);
     };
 
-    loadProfile();
+    fetchMyProfile();
   }, []);
 
-  // 💬 Username + tag availability checker
-  useEffect(() => {
-    const check = async () => {
-      if (!profile.username || !profile.tagLabel) {
-        setAvailabilityMsg('');
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('username', profile.username.trim())
-        .eq('tagLabel', profile.tagLabel.trim());
-
-      if (error) {
-        setAvailabilityMsg('Error checking availability');
-      } else if (data.length > 0) {
-        setAvailabilityMsg('That username + tag is taken 😞');
-      } else {
-        setAvailabilityMsg('✅ Available!');
-      }
-    };
-
-    const debounce = setTimeout(check, 500);
-    return () => clearTimeout(debounce);
-  }, [profile.username, profile.tagLabel]);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const themePickerRef = useRef<HTMLInputElement>(null);
-  const innerPickerRef = useRef<HTMLInputElement>(null);
-
-  const handleImageUpload = (event: any) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setProfile((prev: any) => ({ ...prev, profileImage: result }));
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const openColorPicker = (ref: React.RefObject<HTMLInputElement | null>) => {
-    if (ref.current) ref.current.click();
-  };
-
-  const handleChange = (field: keyof typeof profile, value: string) => {
-    setProfile((prev: any) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSave = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      alert("Not logged in.");
-      return;
-    }
-
-    const payload = {
-      id: user.id,
-      displayName: profile.displayName,
-      username: profile.username,
-      bio: profile.bio,
-      tagLabel: profile.tagLabel,
-      emoji: profile.emoji,
-      themeColor: profile.themeColor,
-      innerColor: profile.innerColor,
-      profileImage: profile.profileImage,
-    };
-
-    const { error } = await supabase
-      .from('profiles')
-      .upsert([payload], { onConflict: 'id' });
-
-    if (error) {
-      console.error("❌ Supabase upsert error:", error);
-      alert("Something went wrong saving your profile.");
-    } else {
-      localStorage.setItem('justSignedUp', '1');
-      router.push('/pulse');
-    }
-  };
+  if (!profile) return null;
 
   return (
-    <main style={{
-      minHeight: '100vh',
-      background: '#000',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      fontFamily: 'Orbitron, sans-serif'
-    }}>
-      <div style={{
-        maxWidth: '480px',
-        width: '100%',
-        padding: '3rem 2rem',
-        borderRadius: '2rem',
-        backgroundColor: profile.innerColor,
-        boxShadow: `0 0 80px ${profile.themeColor}`,
-        color: 'white',
-        textAlign: 'center',
-        position: 'relative'
-      }}>
-        {/* Profile Image */}
-        <div style={{
-          width: '120px',
-          height: '120px',
-          borderRadius: '50%',
-          overflow: 'hidden',
-          margin: '0 auto',
-          border: `4px solid ${profile.themeColor}`,
-          boxShadow: `0 0 20px ${profile.themeColor}`,
-          position: 'relative'
-        }}>
-          {profile.profileImage ? (
-            <img src={profile.profileImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <div style={{ width: '100%', height: '100%', backgroundColor: '#111' }} />
-          )}
-        </div>
-
-        <button onClick={() => fileInputRef.current?.click()} style={{
-          marginTop: '0.6rem',
-          backgroundColor: '#111',
-          color: profile.themeColor,
-          fontSize: '0.8rem',
-          padding: '0.4rem 1rem',
-          borderRadius: '0.6rem',
-          border: `1px solid ${profile.themeColor}`,
-          cursor: 'pointer',
-          boxShadow: `0 0 6px ${profile.themeColor}`
-        }}>
-          Upload Photo
-        </button>
-        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} style={{ display: 'none' }} />
-
-        {/* Inputs */}
-        {['displayName', 'username', 'bio'].map((field, index) => (
-          <input
-            key={index}
-            type="text"
-            placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-            value={profile[field]}
-            onChange={e => handleChange(field as keyof typeof profile, e.target.value)}
-            style={{
-              margin: '0.6rem 0',
-              padding: '0.6rem',
-              width: '100%',
-              borderRadius: '0.8rem',
-              border: 'none',
-              fontSize: '1rem',
-              outline: 'none',
-              background: '#111',
-              color: '#fff',
-              boxShadow: `0 0 6px ${profile.themeColor}`
-            }}
-          />
-        ))}
-
-        {/* Availability Message */}
-        <p className="text-sm text-center mt-1" style={{ color: availabilityMsg.includes('taken') ? 'red' : '#12f7ff' }}>
-          {availabilityMsg}
-        </p>
-
-        {/* Color Picker Info */}
-        <p style={{ fontSize: '0.9rem', color: '#aaa', marginBottom: '0.4rem', marginTop: '1rem' }}>
-          Shape your Gaming Aesthetic
-        </p>
-
-        {/* Color Pickers */}
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-          <div onClick={() => openColorPicker(themePickerRef)} style={{
-            backgroundColor: profile.themeColor,
-            width: '100%',
-            height: '2.5rem',
-            borderRadius: '0.6rem',
-            cursor: 'pointer',
-            boxShadow: `0 0 8px ${profile.themeColor}`
-          }} />
-          <div onClick={() => openColorPicker(innerPickerRef)} style={{
-            backgroundColor: profile.innerColor,
-            width: '100%',
-            height: '2.5rem',
-            borderRadius: '0.6rem',
-            border: '2px solid #333',
-            cursor: 'pointer',
-            boxShadow: `0 0 8px ${profile.innerColor}`
-          }} />
-        </div>
-
-        <input type="color" ref={themePickerRef} onChange={e => handleChange('themeColor', e.target.value)} style={{ display: 'none' }} />
-        <input type="color" ref={innerPickerRef} onChange={e => handleChange('innerColor', e.target.value)} style={{ display: 'none' }} />
-
-        {/* Emoji & Tag */}
-        <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem' }}>
-          <input
-            type="text"
-            value={profile.emoji}
-            onChange={e => handleChange('emoji', e.target.value)}
-            maxLength={2}
-            style={{
-              width: '4rem',
-              textAlign: 'center',
-              fontSize: '1.5rem',
-              background: '#111',
-              border: 'none',
-              color: '#fff',
-              borderRadius: '0.6rem',
-              boxShadow: `0 0 6px ${profile.themeColor}`
-            }}
-          />
-          <input
-            type="text"
-            placeholder="Guild Tag"
-            value={profile.tagLabel}
-            onChange={e => handleChange('tagLabel', e.target.value)}
-            style={{
-              flexGrow: 1,
-              padding: '0.6rem',
-              borderRadius: '0.8rem',
-              border: 'none',
-              background: '#111',
-              color: '#fff',
-              fontSize: '1rem',
-              boxShadow: `0 0 6px ${profile.themeColor}`
-            }}
-          />
-        </div>
-
-        {/* Save Button */}
-        <button onClick={handleSave} style={{
-          backgroundColor: profile.themeColor,
-          color: '#111',
-          padding: '0.8rem 2rem',
-          borderRadius: '1.2rem',
-          fontWeight: 'bold',
-          border: 'none',
-          fontSize: '1.2rem',
-          cursor: 'pointer',
-          boxShadow: `0 0 15px ${profile.themeColor}`
-        }}>
-          Save Profile
-        </button>
-
-        {/* Back to Pulse */}
-        <div style={{ marginTop: '2rem' }}>
-          <a
-            href="/pulse"
-            style={{
-              color: '#12f7ff',
-              fontSize: '0.9rem',
-              textDecoration: 'underline',
-              display: 'inline-block',
-              marginTop: '1rem'
-            }}
-          >
-            ⬅ Back to Pulse
-          </a>
-        </div>
+    <div className="fixed bottom-5 right-5 z-50 bg-[#111] border border-[#333] text-white rounded-2xl shadow-xl p-4 flex items-center space-x-3 max-w-sm backdrop-blur-md">
+      <img
+        src={profile.profileImage || '/default-avatar.png'}
+        alt="Me"
+        className="w-12 h-12 rounded-full object-cover border-2"
+        style={{ borderColor: profile.themeColor || '#12f7ff' }}
+      />
+      <div className="flex flex-col">
+        <p className="text-sm font-bold">{profile.displayName || 'Me'}</p>
+        <p className="text-xs text-[#aaa]">@{profile.username}</p>
       </div>
-    </main>
+      <a
+        href="/profile"
+        className="ml-auto px-3 py-1 bg-[#12f7ff] text-[#111] font-bold text-xs rounded-lg hover:bg-[#0fd0d0] transition"
+      >
+        Edit
+      </a>
+    </div>
   );
 }
