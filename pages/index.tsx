@@ -27,36 +27,35 @@ export default function Home() {
     e.preventDefault();
     setMessage('');
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
+const handleSignUp = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setMessage('');
 
-    if (error) {
-      setMessage(error.message);
-      return;
+  const { data, error } = await supabase.auth.signUp({ email, password });
+
+  if (error) {
+    setMessage(error.message);
+    return;
+  }
+
+  // 🔄 Wait for Supabase to finalize session
+  let sessionUser = null;
+  for (let i = 0; i < 10; i++) {
+    const { data: sessionData } = await supabase.auth.getUser();
+    if (sessionData?.user) {
+      sessionUser = sessionData.user;
+      break;
     }
+    await new Promise((res) => setTimeout(res, 300)); // wait 0.3 seconds
+  }
 
-    const user = data?.user;
+  if (sessionUser) {
+    router.push('/profile');
+  } else {
+    setMessage("Session not ready. Please refresh and try again.");
+  }
+};
 
-    if (user) {
-      try {
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', user.id);
-
-        if (!existingProfile || existingProfile.length === 0) {
-          // No profile yet, go create one
-          router.push('/join');
-        } else {
-          // Already has profile
-          router.push('/pulse');
-        }
-      } catch (err) {
-        console.error('Error checking profile:', err);
-        setMessage('Something went wrong checking your profile.');
-      }
-    } else {
-      setMessage('Check your email to complete Sign-Up 👾');
-    }
   };
 
   const handleForgotPassword = async () => {
