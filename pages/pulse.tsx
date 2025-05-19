@@ -288,11 +288,19 @@ function MyProfileCorner() {
 
   useEffect(() => {
     const fetchMyProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-      if (!user) return;
+      if (userError) {
+        console.error('🔒 Auth error:', userError.message);
+        return;
+      }
+
+      if (!user) {
+        console.warn('⚠️ No user found in session');
+        return;
+      }
+
+      console.log('🔍 Current user ID:', user.id);
 
       const { data, error } = await supabase
         .from('profiles')
@@ -300,7 +308,12 @@ function MyProfileCorner() {
         .eq('id', user.id)
         .single();
 
-      if (!error) setProfile(data);
+      if (error) {
+        console.error('❌ Failed to load profile:', error.message);
+        return;
+      }
+
+      setProfile(data);
     };
 
     fetchMyProfile();
