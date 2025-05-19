@@ -59,6 +59,7 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
       <div className="relative z-10 px-6 py-4 max-w-[1440px] mx-auto">
         {children}
         <AddFriendsDropdown />
+        <MyProfileCorner />
       </div>
     </div>
   );
@@ -95,38 +96,34 @@ function AddFriendsDropdown() {
     return () => clearTimeout(debounce);
   }, [query]);
 
-  // Handler to add friend (replace with your logic/table as needed)
-const handleAddFriend = async (toUserId: string) => {
-  setAdding(toUserId);
+  const handleAddFriend = async (toUserId: string) => {
+    setAdding(toUserId);
 
-  // Get the currently logged-in user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-  if (authError || !user) {
-    alert('You must be logged in to send friend requests.');
+    if (authError || !user) {
+      alert('You must be logged in to send friend requests.');
+      setAdding(null);
+      return;
+    }
+
+    const { error } = await supabase
+      .from('friend_requests')
+      .insert([{ from: user.id, to: toUserId, status: 'pending' }]);
+
     setAdding(null);
-    return;
-  }
 
-  // Send the friend request
-  const { error } = await supabase
-    .from('friend_requests')
-    .insert([{ from: user.id, to: toUserId, status: 'pending' }]);
+    if (error) {
+      console.error('❌ Add friend error:', error.message);
+      alert('Failed to send friend request.');
+    } else {
+      alert('✅ Friend request sent!');
+    }
+  };
 
-  setAdding(null);
-
-  if (error) {
-    console.error('❌ Add friend error:', error.message);
-    alert('Failed to send friend request.');
-  } else {
-    alert('✅ Friend request sent!');
-  }
-};
-
-  // Handler to view profile (navigate to /profile/[id])
   const handleViewProfile = (userId: string) => {
     window.location.href = `/profile/${userId}`;
   };
@@ -184,6 +181,53 @@ const handleAddFriend = async (toUserId: string) => {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function MyProfileCorner() {
+  const [profile, setProfile] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchMyProfile = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (!error) setProfile(data);
+    };
+
+    fetchMyProfile();
+  }, []);
+
+  if (!profile) return null;
+
+  return (
+    <div className="fixed bottom-5 right-5 z-50 bg-[#111] border border-[#333] text-white rounded-2xl shadow-xl p-4 flex items-center space-x-3 max-w-sm backdrop-blur-md">
+      <img
+        src={profile.profileImage || '/default-avatar.png'}
+        alt="Me"
+        className="w-12 h-12 rounded-full object-cover border-2"
+        style={{ borderColor: profile.themeColor || '#12f7ff' }}
+      />
+      <div className="flex flex-col">
+        <p className="text-sm font-bold">{profile.displayName || 'Me'}</p>
+        <p className="text-xs text-[#aaa]">@{profile.username}</p>
+      </div>
+      <a
+        href="/profile"
+        className="ml-auto px-3 py-1 bg-[#12f7ff] text-[#111] font-bold text-xs rounded-lg hover:bg-[#0fd0d0] transition"
+      >
+        Edit
+      </a>
     </div>
   );
 }
