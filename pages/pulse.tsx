@@ -96,18 +96,35 @@ function AddFriendsDropdown() {
   }, [query]);
 
   // Handler to add friend (replace with your logic/table as needed)
-  const handleAddFriend = async (userId: string) => {
-    setAdding(userId);
-    const { error } = await supabase
-      .from('friend_requests') // Make sure this table exists!
-      .insert([{ to: userId }]);
+const handleAddFriend = async (toUserId: string) => {
+  setAdding(toUserId);
+
+  // Get the currently logged-in user
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    alert('You must be logged in to send friend requests.');
     setAdding(null);
-    if (error) {
-      alert('Failed to send friend request.');
-    } else {
-      alert('Friend request sent!');
-    }
-  };
+    return;
+  }
+
+  // Send the friend request
+  const { error } = await supabase
+    .from('friend_requests')
+    .insert([{ from: user.id, to: toUserId, status: 'pending' }]);
+
+  setAdding(null);
+
+  if (error) {
+    console.error('❌ Add friend error:', error.message);
+    alert('Failed to send friend request.');
+  } else {
+    alert('✅ Friend request sent!');
+  }
+};
 
   // Handler to view profile (navigate to /profile/[id])
   const handleViewProfile = (userId: string) => {
