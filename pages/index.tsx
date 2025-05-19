@@ -33,7 +33,7 @@ export default function Home() {
     } else if (data.user) {
       router.push('/profile');
     } else {
-      setMessage('Check your email to confirm your account!');
+      setMessage('Check your email to complete Sign-Up 👾');
     }
   };
 
@@ -162,7 +162,7 @@ export default function Home() {
             }}
             className="text-sm text-[#aaa] hover:text-[#fe019a] transition"
           >
-            {showSignUp ? 'Already have an account? Log in' : 'New here? Sign up'}
+            {showSignUp ? 'Have an account? Log in!' : 'New here? Sign up!'}
           </button>
         </div>
       </div>
