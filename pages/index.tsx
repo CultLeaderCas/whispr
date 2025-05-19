@@ -1,171 +1,211 @@
 import { useState, useEffect } from 'react';
+import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { supabase } from '@/lib/supabaseClient';
-import { JSX } from 'react/jsx-runtime';
 
 export default function Home() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState('');
-  const [stars, setStars] = useState<JSX.Element[]>([]);
-  const [showSignUp, setShowSignUp] = useState(false);
+  const [stars, setStars] = useState<any[]>([]);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setMessage(error.message);
-    } else {
-      router.push('/pulse');
-    }
-  };
+  useEffect(() => {
+    const starArray = Array.from({ length: 70 }).map(() => {
+      const size = Math.random() * 2 + 1;
+      return {
+        top: `${Math.random() * 100}%`,
+        left: `${Math.random() * 100}%`,
+        size,
+        color: ['#12f7ff', '#fe019a', '#9500FF'][Math.floor(Math.random() * 3)],
+        delay: Math.random() * 4
+      };
+    });
+    setStars(starArray);
+  }, []);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage('');
+
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
       setMessage(error.message);
-    } else if (data.user) {
-      router.push('/profile');
+      return;
+    }
+
+    const user = data.user;
+
+    if (user) {
+      console.log('✅ User signed up:', user.id);
+
+      // Check if profile exists
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id);
+
+      if (!existingProfile || existingProfile.length === 0) {
+        // No profile found — go create one
+        router.push('/join');
+      } else {
+        // Already has a profile — go to pulse
+        router.push('/pulse');
+      }
     } else {
       setMessage('Check your email to complete Sign-Up 👾');
     }
   };
 
-  const handleForgotPassword = async () => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://whispr-h5lvqmnox-cas-projects-8f91dbd9.vercel.app/reset',
-    });
-    if (error) {
-      setMessage('Error: ' + error.message);
-    } else {
-      setMessage('Password reset email sent!');
-    }
-  };
-
-  useEffect(() => {
-    const colors = ['#12f7ff', '#fe019a', '#9500FF'];
-    const newStars = Array.from({ length: 60 }).map((_, i) => {
-      const size = Math.random() * 4 + 1;
-      const top = Math.random() * 100;
-      const left = Math.random() * 100;
-      const color = colors[Math.floor(Math.random() * colors.length)];
-      const duration = Math.random() * 3 + 2;
-
-      return (
-        <div
-          key={i}
-          className="twinkle"
-          style={{
-            position: 'absolute',
-            top: `${top}%`,
-            left: `${left}%`,
-            width: `${size}px`,
-            height: `${size}px`,
-            backgroundColor: color,
-            borderRadius: '9999px',
-            opacity: 0.8,
-            animationDuration: `${duration}s`,
-            animationDelay: `${Math.random() * 4}s`,
-          }}
-        />
-      );
-    });
-    setStars(newStars);
-  }, []);
-
   return (
-    <div className="relative min-h-screen bg-black flex items-center justify-center overflow-hidden font-sans text-white">
-      <style global jsx>{`
-        @keyframes twinkle {
-          0% {
-            opacity: 0.2;
-            transform: scale(0.8);
-          }
-          100% {
-            opacity: 1;
-            transform: scale(1.2);
-          }
+    <>
+      <Head>
+        <title>Whispr – Enter the Signal</title>
+        <meta name="description" content="Sign in to the hum. Begin your signal." />
+      </Head>
+
+      <style>{`
+        body {
+          margin: 0;
+          padding: 0;
+          background: #0a001f;
+          overflow: hidden;
         }
-        .twinkle {
-          animation: twinkle infinite alternate;
+
+        .star {
+          position: fixed;
+          border-radius: 50%;
+          animation: twinkle 4s ease-in-out infinite;
+        }
+
+        @keyframes twinkle {
+          0% { opacity: 0.3; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.3); }
+          100% { opacity: 0.3; transform: scale(1); }
         }
       `}</style>
 
-      <div className="absolute inset-0 z-0">{stars}</div>
+      {stars.map((star, i) => (
+        <div
+          key={i}
+          className="star"
+          style={{
+            top: star.top,
+            left: star.left,
+            width: `${star.size}px`,
+            height: `${star.size}px`,
+            backgroundColor: star.color,
+            animationDelay: `${star.delay}s`,
+            zIndex: 0,
+          }}
+        />
+      ))}
 
-      <div className="z-10 bg-[#111] p-8 rounded-2xl shadow-2xl border border-[#333] w-full max-w-md backdrop-blur-sm">
-        <h1 className="text-4xl font-extrabold text-center text-[#9500FF] mb-2 drop-shadow-[0_0_10px_#9500FF]">
-          Whispr
-        </h1>
-        <p className="text-center text-gray-400 mb-6">Game. Rage. Whispr.</p>
+      <main style={{
+        minHeight: '100vh',
+        position: 'relative',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        fontFamily: 'Orbitron, sans-serif',
+        color: 'white',
+        textAlign: 'center',
+        padding: '2rem',
+        zIndex: 1
+      }}>
+        <div style={{
+          maxWidth: '500px',
+          width: '100%',
+          backgroundColor: '#111',
+          borderRadius: '2rem',
+          padding: '3rem 2rem',
+          boxShadow: '0 0 60px #9500FF, 0 0 90px #12f7ff',
+          border: '2px solid #222',
+        }}>
+          <h1 style={{
+            fontSize: '2.5rem',
+            marginBottom: '1rem',
+            color: '#12f7ff',
+            textShadow: '0 0 10px #12f7ff'
+          }}>
+            Welcome to <span style={{ color: '#fe019a', textShadow: '0 0 15px #fe019a' }}>Whispr</span>
+          </h1>
+          <p style={{ fontSize: '1rem', color: '#ccc', marginBottom: '2rem' }}>
+            Sign in to begin your signal.
+          </p>
 
-        <form onSubmit={showSignUp ? handleSignUp : handleLogin} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 bg-[#1e1e1e] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#12f7ff]"
-            required
-          />
-
-          {/* Password Input with Animated Eye Emoji */}
-          <div className="relative mb-4">
+          <form onSubmit={handleSignUp}>
             <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Password"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Your Email"
+              required
+              style={{
+                width: '100%',
+                padding: '0.8rem',
+                fontSize: '1.1rem',
+                borderRadius: '1rem',
+                border: '2px solid #9500FF',
+                backgroundColor: '#0a0a0a',
+                color: '#fff',
+                marginBottom: '1rem',
+                textAlign: 'center',
+                boxShadow: '0 0 10px #9500FF'
+              }}
+            />
+
+            <input
+              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 pr-12 rounded-xl bg-[#111] text-white outline-none border border-[#333] shadow focus:ring-2 focus:ring-[#fe019a]"
+              placeholder="Create a Password"
+              required
+              style={{
+                width: '100%',
+                padding: '0.8rem',
+                fontSize: '1.1rem',
+                borderRadius: '1rem',
+                border: '2px solid #12f7ff',
+                backgroundColor: '#0a0a0a',
+                color: '#fff',
+                marginBottom: '1.5rem',
+                textAlign: 'center',
+                boxShadow: '0 0 10px #12f7ff'
+              }}
             />
+
             <button
-              type="button"
-              onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-2xl transition-all duration-300 hover:scale-125"
-              aria-label="Toggle password visibility"
+              type="submit"
+              style={{
+                width: '100%',
+                padding: '0.9rem',
+                fontSize: '1.2rem',
+                fontWeight: 'bold',
+                borderRadius: '1rem',
+                border: 'none',
+                backgroundColor: '#fe019a',
+                color: '#111',
+                cursor: 'pointer',
+                boxShadow: '0 0 15px #fe019a'
+              }}
             >
-              {showPassword ? '👀' : '🙈'}
+              Join the Signal
             </button>
-          </div>
+          </form>
 
-          {message && <p className="text-sm text-red-400 text-center">{message}</p>}
-
-          <button
-            type="submit"
-            className="w-full bg-[#12f7ff] text-[#111] font-bold py-2 px-4 rounded-xl hover:bg-[#0fd0d0] transition"
-          >
-            {showSignUp ? 'Sign Up' : 'Login'}
-          </button>
-
-          {!showSignUp && (
-            <button
-              type="button"
-              onClick={handleForgotPassword}
-              className="text-sm text-[#aaa] hover:text-[#12f7ff] transition mt-2 block mx-auto"
-            >
-              Forgot password?
-            </button>
+          {message && (
+            <p style={{
+              marginTop: '1.5rem',
+              fontSize: '0.9rem',
+              color: '#ff66c4'
+            }}>
+              {message}
+            </p>
           )}
-        </form>
-
-        <div className="text-center mt-4">
-          <button
-            onClick={() => {
-              setMessage('');
-              setShowSignUp(!showSignUp);
-            }}
-            className="text-sm text-[#aaa] hover:text-[#fe019a] transition"
-          >
-            {showSignUp ? 'Have an account? Log in!' : 'New here? Sign up!'}
-          </button>
         </div>
-      </div>
-    </div>
+      </main>
+    </>
   );
 }

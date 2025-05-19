@@ -308,10 +308,11 @@ function MyProfileCorner() {
         .eq('id', user.id)
         .single();
 
-      if (error) {
-        console.error('❌ Failed to load profile:', error.message);
-        return;
-      }
+     if (error || !data) {
+  console.warn('⚠️ No profile found, redirecting...');
+  window.location.href = '/join';
+  return;
+}
 
       setProfile(data);
     };
