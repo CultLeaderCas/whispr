@@ -23,7 +23,37 @@ export default function Home() {
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
+ const handleSignUp = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setMessage('');
+
+  const { data, error } = await supabase.auth.signUp({ email, password });
+
+  if (error) {
+    setMessage(error.message);
+    return;
+  }
+
+  // Wait for Supabase to finalize session
+  let sessionUser = null;
+  for (let i = 0; i < 10; i++) {
+    const { data: sessionData } = await supabase.auth.getUser();
+    if (sessionData?.user) {
+      sessionUser = sessionData.user;
+      break;
+    }
+    await new Promise((res) => setTimeout(res, 300));
+  }
+
+  if (!sessionUser) {
+    setMessage("Your account was created, but you are not signed in yet. Please refresh and try again.");
+    return;
+  }
+
+  // Redirect to profile creation
+  router.push('/profile');
+};
+
     e.preventDefault();
     setMessage('');
 
