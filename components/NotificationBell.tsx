@@ -1,24 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
-type Notification = {
-  id: string;
-  type: string;
-  message: string;
-  is_read: boolean;
-  created_at: string;
-};
-
 export default function NotificationBell() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [showPanel, setShowPanel] = useState(false);
 
   useEffect(() => {
     const fetchNotifications = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data, error } = await supabase
@@ -30,20 +19,62 @@ export default function NotificationBell() {
       if (!error) setNotifications(data || []);
     };
 
+    // Fetch notifications initially and every 1 second
     fetchNotifications();
+    const interval = setInterval(fetchNotifications, 1000);
+
+    return () => clearInterval(interval); // Clean up the interval on component unmount
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const markAsRead = async (id: string) => {
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', id);
-
+    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
     );
+  };
+
+  const handleAccept = async (id: string, fromUserId: string) => {
+    // Update the friend request status to accepted in the database
+    const { error } = await supabase
+      .from('friend_requests')
+      .update({ status: 'accepted' })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error accepting friend request:', error);
+      return;
+    }
+
+    // Also, mark the notification as read
+    markAsRead(id);
+
+    // Optionally, you can send a notification to the other user saying their friend request was accepted
+    await supabase.from('notifications').insert([
+      {
+        to_user_id: fromUserId,
+        message: `Your friend request was accepted!`,
+        type: 'friend_request_accepted',
+        is_read: false
+      }
+    ]);
+  };
+
+  const handleDecline = async (id: string) => {
+    // Remove the friend request from the database
+    const { error } = await supabase
+      .from('friend_requests')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error declining friend request:', error);
+      return;
+    }
+
+    // Mark the notification as read
+    markAsRead(id);
   };
 
   return (
@@ -70,7 +101,6 @@ export default function NotificationBell() {
                 You have no notifications.
               </p>
             )}
-
             {notifications.map((note) => (
               <div
                 key={note.id}
@@ -85,6 +115,22 @@ export default function NotificationBell() {
                 <p className="text-xs text-[#666] mt-1">
                   {new Date(note.created_at).toLocaleString()}
                 </p>
+                {note.type === 'friend_request' && (
+                  <div className="mt-2 flex space-x-3">
+                    <button
+                      className="px-3 py-1 bg-[#12f7ff] text-[#111] rounded-lg text-xs font-bold hover:bg-[#0fd0d0]"
+                      onClick={() => handleAccept(note.id, note.from_user_id)}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      className="px-3 py-1 bg-[#9500FF] text-white text-xs rounded-lg font-bold hover:bg-[#7a00cc]"
+                      onClick={() => handleDecline(note.id)}
+                    >
+                      Decline
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
