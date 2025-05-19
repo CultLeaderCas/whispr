@@ -5,17 +5,7 @@ import { supabase } from '@/lib/supabaseClient';
 export default function ProfilePage() {
   const router = useRouter();
 
-  const [profile, setProfile] = useState<any>({
-    displayName: '',
-    username: '',
-    bio: '',
-    tagLabel: '',
-    emoji: '💙',
-    themeColor: '#fe019a',
-    innerColor: '#9500FF',
-    profileImage: '',
-  });
-
+  const [profile, setProfile] = useState<any>(null);
   const [availabilityMsg, setAvailabilityMsg] = useState('');
 
   useEffect(() => {
@@ -39,22 +29,18 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    const check = async () => {
-      if (!profile.username || !profile.tagLabel) {
-        setAvailabilityMsg('');
-        return;
-      }
+    if (!profile || !profile.username) return;
 
+    const check = async () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('id')
-        .eq('username', profile.username.trim())
-        .eq('tagLabel', profile.tagLabel.trim());
+        .eq('username', profile.username.trim());
 
       if (error) {
         setAvailabilityMsg('Error checking availability');
       } else if (data.length > 0) {
-        setAvailabilityMsg('That username + tag is taken 😞');
+        setAvailabilityMsg('That username is taken 😞');
       } else {
         setAvailabilityMsg('✅ Available!');
       }
@@ -62,7 +48,7 @@ export default function ProfilePage() {
 
     const debounce = setTimeout(check, 500);
     return () => clearTimeout(debounce);
-  }, [profile.username, profile.tagLabel]);
+  }, [profile?.username]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const themePickerRef = useRef<HTMLInputElement>(null);
@@ -84,7 +70,7 @@ export default function ProfilePage() {
     if (ref.current) ref.current.click();
   };
 
-  const handleChange = (field: keyof typeof profile, value: string) => {
+  const handleChange = (field: string, value: string) => {
     setProfile((prev: any) => ({ ...prev, [field]: value }));
   };
 
@@ -99,11 +85,10 @@ export default function ProfilePage() {
     }
 
     const payload = {
-      id: user.id, // ✅ use correct Supabase user ID
+      id: user.id,
       displayName: profile.displayName,
       username: profile.username,
       bio: profile.bio,
-      tagLabel: profile.tagLabel,
       emoji: profile.emoji,
       themeColor: profile.themeColor,
       innerColor: profile.innerColor,
@@ -112,7 +97,7 @@ export default function ProfilePage() {
 
     const { error } = await supabase
       .from('profiles')
-      .upsert([payload], { onConflict: 'id' }); // ✅ update if exists, insert if not
+      .upsert([payload], { onConflict: 'id' });
 
     if (error) {
       console.error("❌ Supabase upsert error:", error);
@@ -122,6 +107,8 @@ export default function ProfilePage() {
       router.push('/pulse');
     }
   };
+
+  if (!profile) return <main style={{ background: '#000', color: '#fff', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Loading...</main>;
 
   return (
     <main style={{
@@ -140,8 +127,7 @@ export default function ProfilePage() {
         backgroundColor: profile.innerColor,
         boxShadow: `0 0 80px ${profile.themeColor}`,
         color: 'white',
-        textAlign: 'center',
-        position: 'relative'
+        textAlign: 'center'
       }}>
         <div style={{
           width: '120px',
@@ -150,8 +136,7 @@ export default function ProfilePage() {
           overflow: 'hidden',
           margin: '0 auto',
           border: `4px solid ${profile.themeColor}`,
-          boxShadow: `0 0 20px ${profile.themeColor}`,
-          position: 'relative'
+          boxShadow: `0 0 20px ${profile.themeColor}`
         }}>
           {profile.profileImage ? (
             <img src={profile.profileImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -175,37 +160,75 @@ export default function ProfilePage() {
         </button>
         <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} style={{ display: 'none' }} />
 
-        {['displayName', 'username', 'bio'].map((field, index) => (
-          <input
-            key={index}
-            type="text"
-            placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-            value={profile[field]}
-            onChange={e => handleChange(field as keyof typeof profile, e.target.value)}
-            style={{
-              margin: '0.6rem 0',
-              padding: '0.6rem',
-              width: '100%',
-              borderRadius: '0.8rem',
-              border: 'none',
-              fontSize: '1rem',
-              outline: 'none',
-              background: '#111',
-              color: '#fff',
-              boxShadow: `0 0 6px ${profile.themeColor}`
-            }}
-          />
-        ))}
+        {/* Display Name */}
+        <input
+          type="text"
+          placeholder="Display Name"
+          value={profile.displayName}
+          onChange={e => handleChange('displayName', e.target.value)}
+          style={{
+            margin: '0.6rem 0',
+            padding: '0.6rem',
+            width: '100%',
+            borderRadius: '0.8rem',
+            border: 'none',
+            fontSize: '1rem',
+            outline: 'none',
+            background: '#111',
+            color: '#fff',
+            boxShadow: `0 0 6px ${profile.themeColor}`
+          }}
+        />
 
-        <p className="text-sm text-center mt-1" style={{ color: availabilityMsg.includes('taken') ? 'red' : '#12f7ff' }}>
-          {availabilityMsg}
-        </p>
+        {/* Username (locked after set) */}
+        <input
+          type="text"
+          placeholder="Username"
+          value={profile.username}
+          onChange={e => handleChange('username', e.target.value)}
+          disabled={!!profile.username}
+          style={{
+            margin: '0.6rem 0',
+            padding: '0.6rem',
+            width: '100%',
+            borderRadius: '0.8rem',
+            border: 'none',
+            fontSize: '1rem',
+            outline: 'none',
+            background: profile.username ? '#222' : '#111',
+            color: profile.username ? '#666' : '#fff',
+            boxShadow: `0 0 6px ${profile.themeColor}`,
+            cursor: profile.username ? 'not-allowed' : 'text'
+          }}
+        />
+        {profile.username && (
+          <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '-0.4rem', marginBottom: '0.6rem' }}>
+            Usernames cannot be changed after creation.
+          </p>
+        )}
 
-        <p style={{ fontSize: '0.9rem', color: '#aaa', marginBottom: '0.4rem', marginTop: '1rem' }}>
-          Shape your Gaming Aesthetic
-        </p>
+        {/* Bio */}
+        <input
+          type="text"
+          placeholder="Bio"
+          value={profile.bio}
+          onChange={e => handleChange('bio', e.target.value)}
+          style={{
+            margin: '0.6rem 0',
+            padding: '0.6rem',
+            width: '100%',
+            borderRadius: '0.8rem',
+            border: 'none',
+            fontSize: '1rem',
+            outline: 'none',
+            background: '#111',
+            color: '#fff',
+            boxShadow: `0 0 6px ${profile.themeColor}`
+          }}
+        />
 
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+        {/* Color Pickers */}
+        <div style={{ marginTop: '1rem', marginBottom: '1rem' }}>
           <div onClick={() => openColorPicker(themePickerRef)} style={{
             backgroundColor: profile.themeColor,
             width: '100%',
@@ -221,6 +244,7 @@ export default function ProfilePage() {
             borderRadius: '0.6rem',
             border: '2px solid #333',
             cursor: 'pointer',
+            marginTop: '0.6rem',
             boxShadow: `0 0 8px ${profile.innerColor}`
           }} />
         </div>
@@ -228,41 +252,26 @@ export default function ProfilePage() {
         <input type="color" ref={themePickerRef} onChange={e => handleChange('themeColor', e.target.value)} style={{ display: 'none' }} />
         <input type="color" ref={innerPickerRef} onChange={e => handleChange('innerColor', e.target.value)} style={{ display: 'none' }} />
 
-        <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem' }}>
-          <input
-            type="text"
-            value={profile.emoji}
-            onChange={e => handleChange('emoji', e.target.value)}
-            maxLength={2}
-            style={{
-              width: '4rem',
-              textAlign: 'center',
-              fontSize: '1.5rem',
-              background: '#111',
-              border: 'none',
-              color: '#fff',
-              borderRadius: '0.6rem',
-              boxShadow: `0 0 6px ${profile.themeColor}`
-            }}
-          />
-          <input
-            type="text"
-            placeholder="Guild Tag"
-            value={profile.tagLabel}
-            onChange={e => handleChange('tagLabel', e.target.value)}
-            style={{
-              flexGrow: 1,
-              padding: '0.6rem',
-              borderRadius: '0.8rem',
-              border: 'none',
-              background: '#111',
-              color: '#fff',
-              fontSize: '1rem',
-              boxShadow: `0 0 6px ${profile.themeColor}`
-            }}
-          />
-        </div>
+        {/* Emoji */}
+        <input
+          type="text"
+          value={profile.emoji}
+          onChange={e => handleChange('emoji', e.target.value)}
+          maxLength={2}
+          style={{
+            width: '4rem',
+            textAlign: 'center',
+            fontSize: '1.5rem',
+            background: '#111',
+            border: 'none',
+            color: '#fff',
+            borderRadius: '0.6rem',
+            boxShadow: `0 0 6px ${profile.themeColor}`,
+            marginBottom: '1rem'
+          }}
+        />
 
+        {/* Save Button */}
         <button onClick={handleSave} style={{
           backgroundColor: profile.themeColor,
           color: '#111',
