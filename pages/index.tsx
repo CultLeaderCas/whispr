@@ -12,7 +12,7 @@ export default function Home() {
   const [stars, setStars] = useState<JSX.Element[]>([]);
   const [showSignUp, setShowSignUp] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMessage('');
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -23,37 +23,7 @@ export default function Home() {
     }
   };
 
- const handleSignUp = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setMessage('');
-
-  const { data, error } = await supabase.auth.signUp({ email, password });
-
-  if (error) {
-    setMessage(error.message);
-    return;
-  }
-
-  // Wait for Supabase to finalize session
-  let sessionUser = null;
-  for (let i = 0; i < 10; i++) {
-    const { data: sessionData } = await supabase.auth.getUser();
-    if (sessionData?.user) {
-      sessionUser = sessionData.user;
-      break;
-    }
-    await new Promise((res) => setTimeout(res, 300));
-  }
-
-  if (!sessionUser) {
-    setMessage("Your account was created, but you are not signed in yet. Please refresh and try again.");
-    return;
-  }
-
-  // Redirect to profile creation
-  router.push('/profile');
-};
-
+  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMessage('');
 
@@ -64,7 +34,7 @@ export default function Home() {
       return;
     }
 
-    // 🔄 Wait for Supabase to finalize session
+    // Wait for Supabase to finalize session
     let sessionUser = null;
     for (let i = 0; i < 10; i++) {
       const { data: sessionData } = await supabase.auth.getUser();
@@ -75,11 +45,13 @@ export default function Home() {
       await new Promise((res) => setTimeout(res, 300));
     }
 
-    if (sessionUser) {
-      router.push('/profile');
-    } else {
-      setMessage("Session not ready. Please refresh and try again.");
+    if (!sessionUser) {
+      setMessage("Your account was created, but you are not signed in yet. Please refresh and try again.");
+      return;
     }
+
+    // Redirect to profile creation
+    router.push('/profile');
   };
 
   const handleForgotPassword = async () => {
