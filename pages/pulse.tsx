@@ -56,12 +56,30 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
 
       <div className="absolute inset-0 z-0">{stars}</div>
 
-      <div className="relative z-10 px-6 py-4 max-w-[1440px] mx-auto">
+      <div className="relative z-10 max-w-[1440px] mx-auto px-6 pt-4">
+        <div className="absolute top-4 right-4 flex space-x-3">
+          <AddFriendsDropdown />
+          <NotificationBell />
+        </div>
         {children}
-        <AddFriendsDropdown />
         <MyProfileCorner />
       </div>
     </div>
+  );
+}
+
+function NotificationBell() {
+  return (
+    <button
+      className="text-3xl relative hover:scale-110 transition"
+      onClick={() => alert('🔔 Notification panel coming soon!')}
+    >
+      <span role="img" aria-label="bell">🔔</span>
+      {/* Example notification count bubble */}
+      <span className="absolute -top-1 -right-2 bg-red-600 text-xs text-white rounded-full px-1.5 shadow">
+        3
+      </span>
+    </button>
   );
 }
 
@@ -98,7 +116,6 @@ function AddFriendsDropdown() {
 
   const handleAddFriend = async (toUserId: string) => {
     setAdding(toUserId);
-
     const {
       data: { user },
       error: authError,
@@ -129,16 +146,16 @@ function AddFriendsDropdown() {
   };
 
   return (
-    <div className="mt-6 relative w-full max-w-md">
+    <div className="relative">
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="bg-[#12f7ff] text-[#111] font-bold px-5 py-2 rounded-xl hover:bg-[#0fd0d0] transition shadow-lg"
+        className="bg-[#12f7ff] text-[#111] font-bold px-4 py-2 rounded-xl hover:bg-[#0fd0d0] transition shadow-lg text-sm"
       >
-        ➕ Add Friend by Username
+        ➕ Add Friends
       </button>
 
       {showDropdown && (
-        <div className="mt-3 bg-[#111] border border-[#333] rounded-xl p-4 shadow-xl backdrop-blur-sm">
+        <div className="absolute top-12 right-0 bg-[#111] border border-[#333] rounded-xl p-4 shadow-xl backdrop-blur-sm z-50 w-80">
           <input
             type="text"
             placeholder="Search username…"
@@ -153,21 +170,21 @@ function AddFriendsDropdown() {
                 <img
                   src={user.profileImage || '/default-avatar.png'}
                   alt="Profile"
-                  className="w-12 h-12 rounded-full mr-3 object-cover border-2 border-[#9500FF] shadow"
+                  className="w-10 h-10 rounded-full mr-3 object-cover border-2 border-[#9500FF] shadow"
                 />
                 <div className="flex-1">
                   <p className="text-white font-semibold">{user.displayName}</p>
                   <p className="text-sm text-[#aaa]">@{user.username}</p>
                 </div>
                 <button
-                  className="ml-2 px-3 py-1 bg-[#12f7ff] text-[#111] rounded-lg font-bold hover:bg-[#0fd0d0] transition"
+                  className="ml-2 px-2 py-1 bg-[#12f7ff] text-[#111] rounded-lg text-xs font-bold hover:bg-[#0fd0d0]"
                   disabled={adding === user.id}
                   onClick={() => handleAddFriend(user.id)}
                 >
-                  {adding === user.id ? 'Adding...' : 'Add'}
+                  {adding === user.id ? '...' : 'Add'}
                 </button>
                 <button
-                  className="ml-2 px-3 py-1 bg-[#9500FF] text-white rounded-lg font-bold hover:bg-[#7a00cc] transition"
+                  className="ml-1 px-2 py-1 bg-[#9500FF] text-white text-xs rounded-lg font-bold hover:bg-[#7a00cc]"
                   onClick={() => handleViewProfile(user.id)}
                 >
                   View
