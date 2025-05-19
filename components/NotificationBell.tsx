@@ -1,0 +1,95 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+
+type Notification = {
+  id: string;
+  type: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+};
+
+export default function NotificationBell() {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showPanel, setShowPanel] = useState(false);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('to_user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (!error) setNotifications(data || []);
+    };
+
+    fetchNotifications();
+  }, []);
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  const markAsRead = async (id: string) => {
+    await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', id);
+
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+    );
+  };
+
+  return (
+    <div className="relative">
+      <button
+        className="text-3xl relative hover:scale-110 transition"
+        onClick={() => setShowPanel(!showPanel)}
+        title="Notifications"
+      >
+        🔔
+        {unreadCount > 0 && (
+          <span className="absolute -top-2 -right-2 bg-[#fe019a] text-white text-xs px-2 rounded-full font-bold shadow">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {showPanel && (
+        <div className="absolute right-0 mt-2 w-80 bg-[#111] border border-[#333] text-white rounded-xl p-4 shadow-xl z-50 backdrop-blur">
+          <h3 className="text-lg font-bold mb-2">Notifications</h3>
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            {notifications.length === 0 && (
+              <p className="text-sm text-[#888] italic text-center">
+                You have no notifications.
+              </p>
+            )}
+
+            {notifications.map((note) => (
+              <div
+                key={note.id}
+                className={`p-3 rounded-lg transition cursor-pointer ${
+                  note.is_read
+                    ? 'bg-[#1e1e1e] text-[#aaa]'
+                    : 'bg-[#272727] text-white border border-[#9500FF]'
+                }`}
+                onClick={() => markAsRead(note.id)}
+              >
+                <p className="text-sm">{note.message}</p>
+                <p className="text-xs text-[#666] mt-1">
+                  {new Date(note.created_at).toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
