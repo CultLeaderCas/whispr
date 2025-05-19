@@ -23,15 +23,37 @@ export default function Home() {
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
+    const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage('');
+
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
       setMessage(error.message);
-    } else if (data.user) {
-      router.push('/profile');
+      return;
+    }
+
+    const user = data?.user;
+
+    if (user) {
+      try {
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', user.id);
+
+        if (!existingProfile || existingProfile.length === 0) {
+          // No profile yet, go create one
+          router.push('/join');
+        } else {
+          // Already has profile
+          router.push('/pulse');
+        }
+      } catch (err) {
+        console.error('Error checking profile:', err);
+        setMessage('Something went wrong checking your profile.');
+      }
     } else {
       setMessage('Check your email to complete Sign-Up 👾');
     }
