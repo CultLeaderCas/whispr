@@ -151,14 +151,14 @@ function AddFriendsDropdown() {
         onClick={() => setShowDropdown(!showDropdown)}
         className="bg-[#12f7ff] text-[#111] font-bold px-4 py-2 rounded-xl hover:bg-[#0fd0d0] transition shadow-lg text-sm"
       >
-        ➕ Add Friends
+        ➕ Add Friends!
       </button>
 
       {showDropdown && (
         <div className="absolute top-12 right-0 bg-[#111] border border-[#333] rounded-xl p-4 shadow-xl backdrop-blur-sm z-50 w-80">
           <input
             type="text"
-            placeholder="Search username…"
+            placeholder="Search Username"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full px-4 py-2 mb-3 bg-[#1e1e1e] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#9500FF]"
