@@ -74,39 +74,40 @@ export default function ProfilePage() {
     setProfile((prev: any) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+const handleSave = async () => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (!user) {
-      alert("Not logged in.");
-      return;
-    }
+  if (!user) {
+    alert("Not logged in.");
+    return;
+  }
 
-    const payload = {
-      id: user.id,
-      displayName: profile.displayName,
-      username: profile.username,
-      bio: profile.bio,
-      emoji: profile.emoji,
-      themeColor: profile.themeColor,
-      innerColor: profile.innerColor,
-      profileImage: profile.profileImage,
-    };
-
-    const { error } = await supabase
-      .from('profiles')
-      .upsert([payload], { onConflict: 'id' });
-
-    if (error) {
-      console.error("❌ Supabase upsert error:", error);
-      alert("Something went wrong saving your profile.");
-    } else {
-      localStorage.setItem('justSignedUp', '1');
-      router.push('/pulse');
-    }
+  const payload = {
+    id: user.id,
+    displayName: profile.displayName,
+    username: profile.username,
+    bio: profile.bio,
+    emoji: profile.emoji,
+    themeColor: profile.themeColor,
+    innerColor: profile.innerColor,
+    profileImage: profile.profileImage,
+    email: user.email, // 💙 This line adds the email to the database
   };
+
+  const { error } = await supabase
+    .from('profiles')
+    .upsert([payload], { onConflict: 'id' });
+
+  if (error) {
+    console.error("❌ Supabase upsert error:", error);
+    alert("Something went wrong saving your profile.");
+  } else {
+    localStorage.setItem('justSignedUp', '1');
+    router.push('/pulse');
+  }
+};
 
   if (!profile) return <main style={{ background: '#000', color: '#fff', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Loading...</main>;
 
