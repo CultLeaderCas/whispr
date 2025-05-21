@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { JSX } from 'react/jsx-runtime';
 import { supabase } from '@/lib/supabaseClient';
+import NotificationBell from "../components/NotificationBell";
 
 export default function PulseLayout({ children }: { children: React.ReactNode }) {
   const [stars, setStars] = useState<JSX.Element[]>([]);
