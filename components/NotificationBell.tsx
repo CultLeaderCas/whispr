@@ -12,11 +12,19 @@ function NotificationBell() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('notifications')
         .select(`*, from_user:from_user_id (id, displayName, username, profileImage)`)
         .eq('to_user_id', user.id)
         .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("❌ Supabase notification fetch error:", error.message);
+      } else if (!data || data.length === 0) {
+        console.log("🔍 No notifications fetched");
+      } else {
+        console.log("✅ Notifications fetched:", data);
+      }
 
       setNotifications(data || []);
     };
@@ -127,7 +135,7 @@ function NotificationBell() {
                   {new Date(note.created_at).toLocaleString()}
                 </p>
 
-                {note.type === 'friend_request' && note.from_user && (
+                {note.type?.trim().toLowerCase() === 'friend_request' && note.from_user && (
                   <div className="mt-2 flex gap-2">
                     <button
                       onClick={() => handleAccept(note.id, note.from_user.id)}
