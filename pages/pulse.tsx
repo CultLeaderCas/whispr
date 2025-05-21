@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { JSX } from 'react/jsx-runtime';
 import { supabase } from '@/lib/supabaseClient';
-import NotificationBell from "../components/NotificationBell";
 
 export default function PulseLayout({ children }: { children: React.ReactNode }) {
   const [stars, setStars] = useState<JSX.Element[]>([]);
@@ -69,85 +68,7 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
   );
 }
 
-function NotificationBell() {
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [showPanel, setShowPanel] = useState(false);
-
-  useEffect(() => {
-    const fetch = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('to_user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      setNotifications(data || []);
-    };
-
-    const interval = setInterval(fetch, 1000); // Pulls notifications every 1 second
-    return () => clearInterval(interval); // Clean up the interval on unmount
-  }, []);
-
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
-
-  const markAsRead = async (id: string) => {
-    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-    );
-  };
-
-  return (
-    <div className="relative">
-      <button
-        className="text-3xl relative hover:scale-110 transition"
-        onClick={() => setShowPanel(!showPanel)}
-        title="Notifications"
-      >
-        🔔
-        {unreadCount > 0 && (
-          <span className="absolute -top-2 -right-2 bg-[#fe019a] text-white text-xs px-2 rounded-full font-bold shadow">
-            {unreadCount}
-          </span>
-        )}
-      </button>
-
-      {showPanel && (
-        <div className="absolute right-0 mt-2 w-80 bg-[#111] border border-[#333] text-white rounded-xl p-4 shadow-xl z-50 backdrop-blur">
-          <h3 className="text-lg font-bold mb-2">Notifications</h3>
-          <div className="space-y-3 max-h-64 overflow-y-auto">
-            {notifications.length === 0 && (
-              <p className="text-sm text-[#888] italic text-center">
-                You have no Notifications.
-              </p>
-            )}
-            {notifications.map((note) => (
-              <div
-                key={note.id}
-                className={`p-3 rounded-lg transition cursor-pointer ${
-                  note.is_read
-                    ? 'bg-[#1e1e1e] text-[#aaa]'
-                    : 'bg-[#272727] text-white border border-[#9500FF]'
-                }`}
-                onClick={() => markAsRead(note.id)}
-              >
-                <p className="text-sm">{note.message}</p>
-                <p className="text-xs text-[#666] mt-1">
-                  {new Date(note.created_at).toLocaleString()}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// Leave NotificationBell component completely untouched
 
 function AddFriendsDropdown() {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -194,10 +115,9 @@ function AddFriendsDropdown() {
       return;
     }
 
-  // INSERT friend request
-  const { error: friendError } = await supabase
-    .from('friend_requests')
-    .insert([{ from_user_id: user.id, to_user_id: toUserId, status: 'pending' }]);
+    const { error: friendError } = await supabase
+      .from('friend_requests')
+      .insert([{ from_user_id: user.id, to_user_id: toUserId, status: 'pending' }]);
 
     if (friendError) {
       console.error('❌ Add friend error:', friendError.message);
@@ -206,24 +126,23 @@ function AddFriendsDropdown() {
       return;
     }
 
-    // INSERT notification
-const { data: profileData } = await supabase
-  .from('profiles')
-  .select('displayName')
-  .eq('id', user.id)
-  .single();
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('displayName')
+      .eq('id', user.id)
+      .single();
 
-const displayName = profileData?.displayName || 'Someone';
+    const displayName = profileData?.displayName || 'Someone';
 
-const { error: notifyError } = await supabase.from('notifications').insert([
-  {
-    to_user_id: toUserId,
-    from_user_id: user.id,
-    message: `${displayName} sent you a friend request!`,
-    type: 'friend_request',
-    is_read: false
-  }
-]);
+    const { error: notifyError } = await supabase.from('notifications').insert([
+      {
+        to_user_id: toUserId,
+        from_user_id: user.id,
+        message: `${displayName} sent you a friend request!`,
+        type: 'friend_request',
+        is_read: false
+      }
+    ]);
 
     if (notifyError) {
       console.error('⚠️ Notification failed:', notifyError.message);
@@ -319,11 +238,11 @@ function MyProfileCorner() {
         .eq('id', user.id)
         .single();
 
-     if (error || !data) {
-  console.warn('⚠️ No profile found, redirecting...');
-  window.location.href = '/join';
-  return;
-}
+      if (error || !data) {
+        console.warn('⚠️ No profile found, redirecting...');
+        window.location.href = '/join';
+        return;
+      }
 
       setProfile(data);
     };
