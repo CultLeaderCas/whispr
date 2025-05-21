@@ -14,7 +14,7 @@ function NotificationBell() {
 
       const { data } = await supabase
         .from('notifications')
-        .select(`*, from_user:from_user_id (displayName, username, profileImage)`) // 💫 joins sender info
+.select(`*, from_user:from_user_id (id, displayName, username, profileImage)`)
         .eq('to_user_id', user.id)
         .order('created_at', { ascending: false });
 
