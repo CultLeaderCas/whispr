@@ -122,7 +122,7 @@ function NotificationBell() {
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {notifications.length === 0 && (
               <p className="text-sm text-[#888] italic text-center">
-                You have no notifications.
+                You have no Notifications.
               </p>
             )}
             {notifications.map((note) => (
@@ -206,14 +206,23 @@ function AddFriendsDropdown() {
     }
 
     // INSERT notification
-    const { error: notifyError } = await supabase.from('notifications').insert([
-      {
-        to_user_id: toUserId,
-        type: 'friend_request',
-        message: 'You have a new friend request!',
-        is_read: false
-      }
-    ]);
+const { data: profileData } = await supabase
+  .from('profiles')
+  .select('displayName')
+  .eq('id', user.id)
+  .single();
+
+const displayName = profileData?.displayName || 'Someone';
+
+const { error: notifyError } = await supabase.from('notifications').insert([
+  {
+    to_user_id: toUserId,
+    from_user_id: user.id,
+    message: `${displayName} sent you a friend request!`,
+    type: 'friend_request',
+    is_read: false
+  }
+]);
 
     if (notifyError) {
       console.error('⚠️ Notification failed:', notifyError.message);
