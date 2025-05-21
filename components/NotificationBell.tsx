@@ -105,19 +105,10 @@ function NotificationBell() {
                 }`}
                 onClick={() => markAsRead(note.id)}
               >
-                {/* 💚 DEBUG BLOCK */}
+                {/* 🔍 DEEP DEBUG */}
                 <pre className="text-xs text-green-400 whitespace-pre-wrap break-words">
-                  {JSON.stringify(note.from_user, null, 2)}
+                  {JSON.stringify(note, null, 2)}
                 </pre>
-                <p className="text-xs text-pink-500">
-                  type: {note.type || 'none'}
-                </p>
-                <p className="text-xs text-yellow-400">
-                  has from_user: {note.from_user ? 'yes' : 'no'}
-                </p>
-                <p className="text-xs text-blue-400">
-                  from_user.id: {note.from_user?.id || 'missing'}
-                </p>
 
                 <p className="text-sm italic">
                   {note.from_user?.displayName ? (
@@ -135,28 +126,27 @@ function NotificationBell() {
                   {new Date(note.created_at).toLocaleString()}
                 </p>
 
-                {note.type?.trim().toLowerCase() === 'friend_request' && note.from_user && (
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      onClick={() => handleAccept(note.id, note.from_user.id)}
-                      className="flex-1 bg-[#12f7ff] text-[#111] font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#0fd0d0]"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => handleDecline(note.id, note.from_user.id)}
-                      className="flex-1 bg-[#9500FF] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#7a00cc]"
-                    >
-                      Decline
-                    </button>
-                    <button
-                      onClick={() => window.location.href = `/profile/${note.from_user.id}`}
-                      className="flex-1 bg-[#333] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#444]"
-                    >
-                      View
-                    </button>
-                  </div>
-                )}
+                {/* 🧪 TEMP: FORCE SHOW BUTTONS */}
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => handleAccept(note.id, note.from_user?.id || note.from_user_id)}
+                    className="flex-1 bg-[#12f7ff] text-[#111] font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#0fd0d0]"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={() => handleDecline(note.id, note.from_user?.id || note.from_user_id)}
+                    className="flex-1 bg-[#9500FF] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#7a00cc]"
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={() => window.location.href = `/profile/${note.from_user?.id || note.from_user_id}`}
+                    className="flex-1 bg-[#333] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#444]"
+                  >
+                    View
+                  </button>
+                </div>
               </div>
             ))}
           </div>
