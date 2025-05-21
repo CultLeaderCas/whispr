@@ -14,7 +14,7 @@ function NotificationBell() {
 
       const { data } = await supabase
         .from('notifications')
-.select(`*, from_user:from_user_id (id, displayName, username, profileImage)`)
+        .select(`*, from_user:from_user_id (id, displayName, username, profileImage)`)
         .eq('to_user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -97,6 +97,11 @@ function NotificationBell() {
                 }`}
                 onClick={() => markAsRead(note.id)}
               >
+                {/* 💚 DEBUG LINE */}
+                <pre className="text-xs text-green-400 whitespace-pre-wrap break-words">
+                  {JSON.stringify(note.from_user, null, 2)}
+                </pre>
+
                 <p className="text-sm italic">
                   {note.from_user?.displayName ? (
                     <span>
@@ -143,3 +148,5 @@ function NotificationBell() {
     </div>
   );
 }
+
+export default NotificationBell;
