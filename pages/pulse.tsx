@@ -193,10 +193,10 @@ function AddFriendsDropdown() {
       return;
     }
 
-    // INSERT friend request
-    const { error: friendError } = await supabase
-      .from('friend_requests')
-      .insert([{ from: user.id, to: toUserId, status: 'pending' }]);
+  // INSERT friend request
+  const { error: friendError } = await supabase
+    .from('friend_requests')
+    .insert([{ from_user_id: user.id, to_user_id: toUserId, status: 'pending' }]);
 
     if (friendError) {
       console.error('❌ Add friend error:', friendError.message);
