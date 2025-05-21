@@ -13,10 +13,10 @@ function NotificationBell() {
       if (!user) return;
 
       const { data, error } = await supabase
-        .from('notifications')
+        .from("notifications")
         .select(`*, from_user:from_user_id (id, displayName, username, profileImage)`)
-        .eq('to_user_id', user.id)
-        .order('created_at', { ascending: false });
+        .eq("to_user_id", user.id)
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error("❌ Supabase notification fetch error:", error.message);
@@ -39,7 +39,7 @@ function NotificationBell() {
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const markAsRead = async (id: string) => {
-    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
     );
@@ -47,16 +47,16 @@ function NotificationBell() {
 
   const handleAccept = async (noteId: string, fromUserId: string) => {
     const { error } = await supabase
-      .from('friend_requests')
-      .update({ status: 'accepted' })
-      .eq('from_user_id', fromUserId);
+      .from("friend_requests")
+      .update({ status: "accepted" })
+      .eq("from_user_id", fromUserId);
 
     if (!error) {
-      await supabase.from('notifications').insert([
+      await supabase.from("notifications").insert([
         {
           to_user_id: fromUserId,
           message: `Your friend request was accepted!`,
-          type: 'friend_request_accepted',
+          type: "friend_request_accepted",
           is_read: false,
         },
       ]);
@@ -66,11 +66,7 @@ function NotificationBell() {
   };
 
   const handleDecline = async (noteId: string, fromUserId: string) => {
-    await supabase
-      .from('friend_requests')
-      .delete()
-      .eq('from_user_id', fromUserId);
-
+    await supabase.from("friend_requests").delete().eq("from_user_id", fromUserId);
     markAsRead(noteId);
   };
 
@@ -103,8 +99,8 @@ function NotificationBell() {
                 key={note.id}
                 className={`p-3 rounded-lg transition cursor-pointer ${
                   note.is_read
-                    ? 'bg-[#1e1e1e] text-[#aaa]'
-                    : 'bg-[#272727] text-white border border-[#9500FF]'
+                    ? "bg-[#1e1e1e] text-[#aaa]"
+                    : "bg-[#272727] text-white border border-[#9500FF]"
                 }`}
                 onClick={() => markAsRead(note.id)}
               >
@@ -113,7 +109,7 @@ function NotificationBell() {
                     <span>
                       <span className="font-semibold text-white italic">
                         {note.from_user.displayName}
-                      </span>{' '}
+                      </span>{" "}
                       sent you a friend request!
                     </span>
                   ) : (
@@ -124,21 +120,28 @@ function NotificationBell() {
                   {new Date(note.created_at).toLocaleString()}
                 </p>
 
+                {/* 💙 Buttons always visible for now */}
                 <div className="mt-2 flex gap-2">
                   <button
-                    onClick={() => handleAccept(note.id, note.from_user?.id || note.from_user_id)}
+                    onClick={() =>
+                      handleAccept(note.id, note.from_user?.id || note.from_user_id)
+                    }
                     className="flex-1 bg-[#12f7ff] text-[#111] font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#0fd0d0]"
                   >
                     Accept
                   </button>
                   <button
-                    onClick={() => handleDecline(note.id, note.from_user?.id || note.from_user_id)}
+                    onClick={() =>
+                      handleDecline(note.id, note.from_user?.id || note.from_user_id)
+                    }
                     className="flex-1 bg-[#9500FF] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#7a00cc]"
                   >
                     Decline
                   </button>
                   <button
-                    onClick={() => window.location.href = `/profile/${note.from_user?.id || note.from_user_id}`}
+                    onClick={() =>
+                      window.location.href = `/profile/${note.from_user?.id || note.from_user_id}`
+                    }
                     className="flex-1 bg-[#333] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#444]"
                   >
                     View
