@@ -1,3 +1,6 @@
+import { supabase } from "@/lib/supabaseClient";
+import { useState, useEffect } from "react";
+
 function NotificationBell() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showPanel, setShowPanel] = useState(false);
