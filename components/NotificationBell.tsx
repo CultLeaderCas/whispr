@@ -24,6 +24,9 @@ function NotificationBell() {
         console.log("🔍 No notifications fetched");
       } else {
         console.log("✅ Notifications fetched:", data);
+        data.forEach((note, index) => {
+          console.log(`📦 Notification[${index}]`, note);
+        });
       }
 
       setNotifications(data || []);
@@ -105,11 +108,6 @@ function NotificationBell() {
                 }`}
                 onClick={() => markAsRead(note.id)}
               >
-                {/* 🔍 DEEP DEBUG */}
-                <pre className="text-xs text-green-400 whitespace-pre-wrap break-words">
-                  {JSON.stringify(note, null, 2)}
-                </pre>
-
                 <p className="text-sm italic">
                   {note.from_user?.displayName ? (
                     <span>
@@ -126,7 +124,6 @@ function NotificationBell() {
                   {new Date(note.created_at).toLocaleString()}
                 </p>
 
-                {/* 🧪 TEMP: FORCE SHOW BUTTONS */}
                 <div className="mt-2 flex gap-2">
                   <button
                     onClick={() => handleAccept(note.id, note.from_user?.id || note.from_user_id)}
