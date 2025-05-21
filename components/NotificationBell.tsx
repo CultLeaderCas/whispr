@@ -97,10 +97,19 @@ function NotificationBell() {
                 }`}
                 onClick={() => markAsRead(note.id)}
               >
-                {/* 💚 DEBUG LINE */}
+                {/* 💚 DEBUG BLOCK */}
                 <pre className="text-xs text-green-400 whitespace-pre-wrap break-words">
                   {JSON.stringify(note.from_user, null, 2)}
                 </pre>
+                <p className="text-xs text-pink-500">
+                  type: {note.type || 'none'}
+                </p>
+                <p className="text-xs text-yellow-400">
+                  has from_user: {note.from_user ? 'yes' : 'no'}
+                </p>
+                <p className="text-xs text-blue-400">
+                  from_user.id: {note.from_user?.id || 'missing'}
+                </p>
 
                 <p className="text-sm italic">
                   {note.from_user?.displayName ? (
