@@ -36,36 +36,92 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
     setStars(newStars);
   }, []);
 
-  return (
-    <div className="relative min-h-screen bg-black overflow-hidden font-sans text-white">
-      <style jsx global>{`
-        @keyframes twinkle {
-          0% {
-            opacity: 0.3;
-            transform: scale(0.8);
-          }
-          100% {
-            opacity: 1;
-            transform: scale(1.2);
-          }
+return (
+  <div className="relative min-h-screen bg-black overflow-hidden font-sans text-white">
+    <style jsx global>{`
+      @keyframes twinkle {
+        0% {
+          opacity: 0.3;
+          transform: scale(0.8);
         }
-        .twinkle {
-          animation: twinkle infinite alternate ease-in-out;
+        100% {
+          opacity: 1;
+          transform: scale(1.2);
         }
-      `}</style>
+      }
+      .twinkle {
+        animation: twinkle infinite alternate ease-in-out;
+      }
+    `}</style>
 
-      <div className="absolute inset-0 z-0">{stars}</div>
+    <div className="absolute inset-0 z-0">{stars}</div>
 
-      <div className="relative z-10 max-w-[1440px] mx-auto px-6 pt-4">
+    <div className="relative z-10 max-w-[1440px] mx-auto pt-4 flex min-h-screen">
+      {/* Left Panel – Nodes */}
+      <div className="w-[220px] bg-[#111] border-r border-[#333] p-4 space-y-4 overflow-y-auto">
+        <h3 className="text-lg font-bold mb-3">Nodes</h3>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
+            <img src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" />
+            <span className="text-sm font-bold">CultOfCas</span>
+          </div>
+          <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
+            <img src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" />
+            <span className="text-sm font-bold">Fortnite</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Center Panel – Friends */}
+      <div className="flex-1 p-6 overflow-y-auto">
         <div className="absolute top-4 right-4 flex space-x-3">
           <AddFriendsDropdown />
           <NotificationBell />
         </div>
+        <h2 className="text-xl font-bold mb-4">Friends</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="bg-[#1e1e1e] p-4 rounded-2xl shadow-lg hover:bg-[#272727] transition cursor-pointer"
+              onClick={() => window.location.href = `/messages/fake-${i}`}
+            >
+              <img
+                src="/default-avatar.png"
+                alt="Friend"
+                className="w-16 h-16 rounded-full border-2 border-[#12f7ff] object-cover mx-auto mb-2"
+              />
+              <div className="text-center">
+                <p className="font-bold">Whispr Test {i}</p>
+                <p className="text-sm text-[#aaa]">@test{i}</p>
+                <p className="text-xs italic text-[#555] mt-1">Status: Testing…</p>
+              </div>
+            </div>
+          ))}
+        </div>
         {children}
-        <MyProfileCorner />
+      </div>
+
+      {/* Right Panel – Profile / Music */}
+      <div className="w-[260px] bg-[#111] border-l border-[#333] p-4 sticky top-0 h-screen">
+        <div className="text-center">
+          <img src="/default-avatar.png" className="w-20 h-20 rounded-full border-2 border-[#12f7ff] mx-auto mb-3" />
+          <p className="font-bold">Cas ✿</p>
+          <p className="text-sm text-[#aaa]">@cas</p>
+        </div>
+        <div className="mt-6">
+          <h4 className="text-sm font-bold mb-2">Now Playing</h4>
+          <div className="bg-[#1a1a1a] p-3 rounded-xl text-sm text-[#ccc]">
+            🎵 No song playing<br />
+            🟢 Online
+          </div>
+        </div>
       </div>
     </div>
-  );
+
+    <MyProfileCorner />
+  </div>
+);
 }
 
 function NotificationBell() {
