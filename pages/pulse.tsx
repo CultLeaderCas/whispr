@@ -68,208 +68,139 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
   );
 }
 
-// Leave NotificationBell component completely untouched
-
-function AddFriendsDropdown() {
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<any[]>([]);
-  const [adding, setAdding] = useState<string | null>(null);
+function NotificationBell() {
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showPanel, setShowPanel] = useState(false);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      const search = query.trim().toLowerCase();
-      if (search === '') {
-        setResults([]);
-        return;
-      }
+    const fetch = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .or(`username.ilike.%${search}%,displayName.ilike.%${search}%`);
+      const { data } = await supabase
+        .from('notifications')
+        .select(`*, from_user:from_user_id (id, displayName, username, profileImage)`)
+        .eq('to_user_id', user.id)
+        .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('❌ Supabase Error:', error.message);
-        setResults([]);
-      } else {
-        setResults(data || []);
-      }
+      setNotifications(data || []);
     };
 
-    const debounce = setTimeout(fetchUsers, 300);
-    return () => clearTimeout(debounce);
-  }, [query]);
+    const interval = setInterval(fetch, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const handleAddFriend = async (toUserId: string) => {
-    setAdding(toUserId);
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      alert('You must be logged in to send friend requests.');
-      setAdding(null);
-      return;
-    }
-
-    const { error: friendError } = await supabase
-      .from('friend_requests')
-      .insert([{ from_user_id: user.id, to_user_id: toUserId, status: 'pending' }]);
-
-    if (friendError) {
-      console.error('❌ Add friend error:', friendError.message);
-      alert('Failed to send friend request.');
-      setAdding(null);
-      return;
-    }
-
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('displayName')
-      .eq('id', user.id)
-      .single();
-
-    const displayName = profileData?.displayName || 'Someone';
-
-    const { error: notifyError } = await supabase.from('notifications').insert([
-      {
-        to_user_id: toUserId,
-        from_user_id: user.id,
-        message: `${displayName} sent you a friend request!`,
-        type: 'friend_request',
-        is_read: false
-      }
-    ]);
-
-    if (notifyError) {
-      console.error('⚠️ Notification failed:', notifyError.message);
-    }
-
-    setAdding(null);
-    alert('✅ Friend request sent!');
+  const markAsRead = async (id: string) => {
+    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+    );
   };
 
-  const handleViewProfile = (userId: string) => {
-    window.location.href = `/profile/${userId}`;
+  const handleAccept = async (noteId: string, fromUserId: string) => {
+    const { error } = await supabase
+      .from('friend_requests')
+      .update({ status: 'accepted' })
+      .eq('from_user_id', fromUserId);
+
+    if (!error) {
+      await supabase.from('notifications').insert([
+        {
+          to_user_id: fromUserId,
+          message: `Your friend request was accepted!`,
+          type: 'friend_request_accepted',
+          is_read: false,
+        },
+      ]);
+    }
+
+    markAsRead(noteId);
+  };
+
+  const handleDecline = async (noteId: string, fromUserId: string) => {
+    await supabase.from('friend_requests').delete().eq('from_user_id', fromUserId);
+    markAsRead(noteId);
   };
 
   return (
     <div className="relative">
       <button
-        onClick={() => setShowDropdown(!showDropdown)}
-        className="bg-[#12f7ff] text-[#111] font-bold px-4 py-2 rounded-xl hover:bg-[#0fd0d0] transition shadow-lg text-sm"
+        className="text-3xl relative hover:scale-110 transition"
+        onClick={() => setShowPanel(!showPanel)}
+        title="Notifications"
       >
-        ➕ Add Friends
+        🔔
+        {unreadCount > 0 && (
+          <span className="absolute -top-2 -right-2 bg-[#fe019a] text-white text-xs px-2 rounded-full font-bold shadow">
+            {unreadCount}
+          </span>
+        )}
       </button>
 
-      {showDropdown && (
-        <div className="absolute top-12 right-0 bg-[#111] border border-[#333] rounded-xl p-4 shadow-xl backdrop-blur-sm z-50 w-80">
-          <input
-            type="text"
-            placeholder="Search username…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full px-4 py-2 mb-3 bg-[#1e1e1e] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#9500FF]"
-          />
-
+      {showPanel && (
+        <div className="absolute right-0 mt-2 w-80 bg-[#111] border border-[#333] text-white rounded-xl p-4 shadow-xl z-50 backdrop-blur">
+          <h3 className="text-lg font-bold mb-2">Notifications</h3>
           <div className="space-y-3 max-h-64 overflow-y-auto">
-            {results.map((user, index) => (
-              <div key={index} className="flex items-center bg-[#1a1a1a] p-3 rounded-xl hover:bg-[#222] transition">
-                <img
-                  src={user.profileImage || '/default-avatar.png'}
-                  alt="Profile"
-                  className="w-10 h-10 rounded-full mr-3 object-cover border-2 border-[#9500FF] shadow"
-                />
-                <div className="flex-1">
-                  <p className="text-white font-semibold">{user.displayName}</p>
-                  <p className="text-sm text-[#aaa]">@{user.username}</p>
-                </div>
-                <button
-                  className="ml-2 px-2 py-1 bg-[#12f7ff] text-[#111] rounded-lg text-xs font-bold hover:bg-[#0fd0d0]"
-                  disabled={adding === user.id}
-                  onClick={() => handleAddFriend(user.id)}
-                >
-                  {adding === user.id ? '...' : 'Add'}
-                </button>
-                <button
-                  className="ml-1 px-2 py-1 bg-[#9500FF] text-white text-xs rounded-lg font-bold hover:bg-[#7a00cc]"
-                  onClick={() => handleViewProfile(user.id)}
-                >
-                  View
-                </button>
+            {notifications.length === 0 && (
+              <p className="text-sm text-[#888] italic text-center">
+                You have no Notifications.
+              </p>
+            )}
+            {notifications.map((note) => (
+              <div
+                key={note.id}
+                className={`p-3 rounded-lg transition cursor-pointer ${
+                  note.is_read
+                    ? 'bg-[#1e1e1e] text-[#aaa]'
+                    : 'bg-[#272727] text-white border border-[#9500FF]'
+                }`}
+              >
+                <p className="text-sm italic">
+                  {note.from_user?.displayName ? (
+                    <span>
+                      <span className="font-semibold text-white italic">
+                        {note.from_user.displayName}
+                      </span>{' '}
+                      sent you a friend request!
+                    </span>
+                  ) : (
+                    note.message
+                  )}
+                </p>
+                <p className="text-xs text-[#666] mt-1">
+                  {new Date(note.created_at).toLocaleString()}
+                </p>
+                {note.type === 'friend_request' && note.from_user && (
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => handleAccept(note.id, note.from_user.id)}
+                      className="flex-1 bg-[#12f7ff] text-[#111] font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#0fd0d0]"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => handleDecline(note.id, note.from_user.id)}
+                      className="flex-1 bg-[#9500FF] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#7a00cc]"
+                    >
+                      Decline
+                    </button>
+                    <button
+                      onClick={() => window.location.href = `/profile/${note.from_user.id}`}
+                      className="flex-1 bg-[#333] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#444]"
+                    >
+                      View
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
-
-            {results.length === 0 && query && (
-              <p className="text-sm text-[#888] italic text-center">No users found.</p>
-            )}
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function MyProfileCorner() {
-  const [profile, setProfile] = useState<any>(null);
-
-  useEffect(() => {
-    const fetchMyProfile = async () => {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-      if (userError) {
-        console.error('🔒 Auth error:', userError.message);
-        return;
-      }
-
-      if (!user) {
-        console.warn('⚠️ No user found in session');
-        return;
-      }
-
-      console.log('🔍 Current user ID:', user.id);
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error || !data) {
-        console.warn('⚠️ No profile found, redirecting...');
-        window.location.href = '/join';
-        return;
-      }
-
-      setProfile(data);
-    };
-
-    fetchMyProfile();
-  }, []);
-
-  if (!profile) return null;
-
-  return (
-    <div className="fixed bottom-5 right-5 z-50 bg-[#111] border border-[#333] text-white rounded-2xl shadow-xl p-4 flex items-center space-x-3 max-w-sm backdrop-blur-md">
-      <img
-        src={profile.profileImage || '/default-avatar.png'}
-        alt="Me"
-        className="w-12 h-12 rounded-full object-cover border-2"
-        style={{ borderColor: profile.themeColor || '#12f7ff' }}
-      />
-      <div className="flex flex-col">
-        <p className="text-sm font-bold">{profile.displayName || 'Me'}</p>
-        <p className="text-xs text-[#aaa]">@{profile.username}</p>
-      </div>
-      <a
-        href="/profile"
-        className="ml-auto px-3 py-1 bg-[#12f7ff] text-[#111] font-bold text-xs rounded-lg hover:bg-[#0fd0d0] transition"
-      >
-        Edit
-      </a>
     </div>
   );
 }
