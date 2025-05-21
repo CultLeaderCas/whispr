@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import Toast from './toast';
 
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showPanel, setShowPanel] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -12,18 +14,16 @@ export default function NotificationBell() {
 
       const { data, error } = await supabase
         .from('notifications')
-        .select('*')
+        .select(`*, from_user:from_user_id ( id, displayName, username, profileImage )`)
         .eq('to_user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (!error) setNotifications(data || []);
     };
 
-    // Fetch notifications initially and every 1 second
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 1000);
-
-    return () => clearInterval(interval); // Clean up the interval on component unmount
+    return () => clearInterval(interval);
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
@@ -36,7 +36,6 @@ export default function NotificationBell() {
   };
 
   const handleAccept = async (id: string, fromUserId: string) => {
-    // Update the friend request status to accepted in the database
     const { error } = await supabase
       .from('friend_requests')
       .update({ status: 'accepted' })
@@ -44,13 +43,12 @@ export default function NotificationBell() {
 
     if (error) {
       console.error('Error accepting friend request:', error);
+      setToastMsg('Failed to accept friend request.');
       return;
     }
 
-    // Also, mark the notification as read
     markAsRead(id);
 
-    // Optionally, you can send a notification to the other user saying their friend request was accepted
     await supabase.from('notifications').insert([
       {
         to_user_id: fromUserId,
@@ -59,10 +57,11 @@ export default function NotificationBell() {
         is_read: false
       }
     ]);
+
+    setToastMsg('Friend request accepted!');
   };
 
   const handleDecline = async (id: string) => {
-    // Remove the friend request from the database
     const { error } = await supabase
       .from('friend_requests')
       .delete()
@@ -70,11 +69,12 @@ export default function NotificationBell() {
 
     if (error) {
       console.error('Error declining friend request:', error);
+      setToastMsg('Failed to decline friend request.');
       return;
     }
 
-    // Mark the notification as read
     markAsRead(id);
+    setToastMsg('Friend request declined.');
   };
 
   return (
@@ -111,15 +111,32 @@ export default function NotificationBell() {
                 }`}
                 onClick={() => markAsRead(note.id)}
               >
-                <p className="text-sm">{note.message}</p>
+                <div className="flex items-center space-x-3 mb-2">
+                  <img
+                    src={note.from_user?.profileImage || '/default-avatar.png'}
+                    alt="Sender"
+                    className="w-8 h-8 rounded-full border border-[#9500FF]"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {note.from_user?.displayName || 'Someone'} sent you a friend request!
+                    </p>
+                    <p className="text-xs text-[#aaa] italic">
+                      @{note.from_user?.username || 'unknown'}
+                    </p>
+                  </div>
+                </div>
                 <p className="text-xs text-[#666] mt-1">
-                  {new Date(note.created_at).toLocaleString()}
+                  {note.created_at
+                    ? new Date(note.created_at).toLocaleString()
+                    : 'Time unknown'}
                 </p>
+
                 {note.type === 'friend_request' && (
-                  <div className="mt-2 flex space-x-3">
+                  <div className="mt-2 flex space-x-2">
                     <button
                       className="px-3 py-1 bg-[#12f7ff] text-[#111] rounded-lg text-xs font-bold hover:bg-[#0fd0d0]"
-                      onClick={() => handleAccept(note.id, note.from_user_id)}
+                      onClick={() => handleAccept(note.id, note.from_user?.id)}
                     >
                       Accept
                     </button>
@@ -129,6 +146,12 @@ export default function NotificationBell() {
                     >
                       Decline
                     </button>
+                    <button
+                      className="px-3 py-1 bg-[#333] text-white text-xs rounded-lg font-bold hover:bg-[#444]"
+                      onClick={() => window.location.href = `/profile/${note.from_user?.id}`}
+                    >
+                      View Profile
+                    </button>
                   </div>
                 )}
               </div>
@@ -136,6 +159,8 @@ export default function NotificationBell() {
           </div>
         </div>
       )}
+
+      {toastMsg && <Toast message={toastMsg} onClose={() => setToastMsg('')} />}
     </div>
   );
 }
