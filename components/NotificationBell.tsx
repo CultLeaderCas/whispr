@@ -75,7 +75,7 @@ function NotificationBell() {
       <button
         className="text-3xl relative hover:scale-110 transition"
         onClick={() => setShowPanel(!showPanel)}
-        title="Notifications"
+      title="Notifications Debug 🌀"
       >
         🔔
         {unreadCount > 0 && (
