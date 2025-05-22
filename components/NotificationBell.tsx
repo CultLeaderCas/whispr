@@ -26,6 +26,7 @@ export default function NotificationBell() {
         return;
       }
 
+      console.log("✅ Notifications fetched:", data);
       setNotifications(data || []);
     };
 
@@ -43,6 +44,8 @@ export default function NotificationBell() {
   };
 
   const handleAccept = async (noteId: string, fromUserId: string) => {
+    console.log("💙 Accepting request from:", fromUserId);
+
     await supabase
       .from("friend_requests")
       .update({ status: "accepted" })
@@ -61,6 +64,7 @@ export default function NotificationBell() {
   };
 
   const handleDecline = async (noteId: string, fromUserId: string) => {
+    console.log("💔 Declining request from:", fromUserId);
     await supabase.from("friend_requests").delete().eq("from_user_id", fromUserId);
     markAsRead(noteId);
   };
@@ -96,9 +100,14 @@ export default function NotificationBell() {
               </p>
             )}
 
-            {notifications.map((note) => {
+            {notifications.map((note, index) => {
               const fromId = getFromUserId(note);
               const name = getDisplayName(note);
+
+              if (!note || !fromId || !note.type) {
+                console.warn(`⚠️ Skipping invalid notification at index ${index}`, note);
+                return null;
+              }
 
               return (
                 <div
@@ -109,6 +118,7 @@ export default function NotificationBell() {
                       : "bg-[#272727] text-white border border-[#9500FF]"
                   }`}
                   onClick={() => markAsRead(note.id)}
+                  style={{ minHeight: "100px" }} // force space for buttons
                 >
                   <p className="text-sm italic">
                     <span className="font-semibold text-white italic">
@@ -122,13 +132,13 @@ export default function NotificationBell() {
                   </p>
 
                   {note.type === "friend_request" && (
-                    <div className="mt-2 flex gap-2">
+                    <div className="mt-2 flex gap-2 border border-[#444] p-1 rounded-md bg-[#1a1a1a]">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleAccept(note.id, fromId);
                         }}
-                        className="flex-1 bg-[#12f7ff] text-[#111] font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#0fd0d0]"
+                        className="flex-1 bg-[#12f7ff] text-[#111] font-bold px-2 py-1 rounded text-xs hover:bg-[#0fd0d0]"
                       >
                         Accept
                       </button>
@@ -137,7 +147,7 @@ export default function NotificationBell() {
                           e.stopPropagation();
                           handleDecline(note.id, fromId);
                         }}
-                        className="flex-1 bg-[#9500FF] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#7a00cc]"
+                        className="flex-1 bg-[#9500FF] text-white font-bold px-2 py-1 rounded text-xs hover:bg-[#7a00cc]"
                       >
                         Decline
                       </button>
@@ -146,7 +156,7 @@ export default function NotificationBell() {
                           e.stopPropagation();
                           window.location.href = `/profile/${fromId}`;
                         }}
-                        className="flex-1 bg-[#333] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#444]"
+                        className="flex-1 bg-[#333] text-white font-bold px-2 py-1 rounded text-xs hover:bg-[#444]"
                       >
                         View
                       </button>
