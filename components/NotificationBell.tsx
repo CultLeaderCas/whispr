@@ -116,37 +116,36 @@ export default function NotificationBell() {
                     {new Date(note.created_at).toLocaleString()}
                   </p>
 
-                  {note.type === "friend_request" && (
-                    <div className="mt-2 flex gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAccept(note.id, fromId);
-                        }}
-                        className="flex-1 bg-[#12f7ff] text-[#111] font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#0fd0d0]"
-                      >
-                        Accept
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDecline(note.id, fromId);
-                        }}
-                        className="flex-1 bg-[#9500FF] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#7a00cc]"
-                      >
-                        Decline
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.location.href = `/profile/${fromId}`;
-                        }}
-                        className="flex-1 bg-[#333] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#444]"
-                      >
-                        View
-                      </button>
-                    </div>
-                  )}
+                  {/* ✅ Always show buttons for now, fallback active */}
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAccept(note.id, fromId);
+                      }}
+                      className="flex-1 bg-[#12f7ff] text-[#111] font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#0fd0d0]"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDecline(note.id, fromId);
+                      }}
+                      className="flex-1 bg-[#9500FF] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#7a00cc]"
+                    >
+                      Decline
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.location.href = `/profile/${fromId}`;
+                      }}
+                      className="flex-1 bg-[#333] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#444]"
+                    >
+                      View
+                    </button>
+                  </div>
                 </div>
               );
             })}
