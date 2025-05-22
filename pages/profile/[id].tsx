@@ -5,7 +5,8 @@ import { JSX } from 'react/jsx-runtime';
 
 export default function PublicProfile() {
   const router = useRouter();
-  const { id } = router.query;
+  const rawId = router.query.id;
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
 
   const [profile, setProfile] = useState<any>(null);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
@@ -45,7 +46,7 @@ export default function PublicProfile() {
   }, []);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || typeof id !== 'string') return;
 
     const fetchProfileData = async () => {
       const { data: session } = await supabase.auth.getUser();
@@ -67,7 +68,7 @@ export default function PublicProfile() {
   }, [id]);
 
   useEffect(() => {
-    if (!authUserId || !id) return;
+    if (!authUserId || !id || typeof id !== 'string') return;
 
     const checkFriendRequest = async () => {
       const { data } = await supabase
