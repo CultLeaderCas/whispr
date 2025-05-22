@@ -1,24 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-type Notification = {
-  id: string;
-  type: string;
-  message: string;
-  is_read: boolean;
-  created_at: string;
-  from_user_id?: string;
-  to_user_id?: string;
-  from_user?: {
-    id: string;
-    displayName: string;
-    username: string;
-    profileImage?: string;
-  };
-};
-
 export default function NotificationBell() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [showPanel, setShowPanel] = useState(false);
 
   useEffect(() => {
@@ -38,15 +22,18 @@ export default function NotificationBell() {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("❌ Error fetching notifications:", error.message);
+        console.error("❌ Notification fetch error:", error.message);
         return;
       }
 
       setNotifications(data || []);
     };
 
-    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 1000);
+    return () => clearInterval(interval);
   }, []);
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const markAsRead = async (id: string) => {
     await supabase.from("notifications").update({ is_read: true }).eq("id", id);
@@ -70,21 +57,19 @@ export default function NotificationBell() {
       },
     ]);
 
-    await markAsRead(noteId);
+    markAsRead(noteId);
   };
 
   const handleDecline = async (noteId: string, fromUserId: string) => {
     await supabase.from("friend_requests").delete().eq("from_user_id", fromUserId);
-    await markAsRead(noteId);
+    markAsRead(noteId);
   };
 
-  const getFromUserId = (note: Notification) =>
+  const getFromUserId = (note: any) =>
     note.from_user?.id ?? note.from_user_id;
 
-  const getDisplayName = (note: Notification) =>
+  const getDisplayName = (note: any) =>
     note.from_user?.displayName ?? "Someone";
-
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
     <div className="relative">
@@ -125,25 +110,15 @@ export default function NotificationBell() {
                   }`}
                   onClick={() => markAsRead(note.id)}
                 >
-                  {note.type === "friend_request" && (
-                    <p className="text-sm italic">
-                      <span className="font-semibold text-white italic">
-                        {name}
-                      </span>{" "}
-                      sent you a friend request!
-                    </p>
-                  )}
-                  {note.type !== "friend_request" && (
-                    <p className="text-sm italic">
-                      <span className="font-semibold text-white italic">
-                        {name}
-                      </span>{" "}
-                      {note.message}
-                    </p>
-                  )}
+                  <p className="text-sm italic">
+                    <span className="font-semibold text-white italic">
+                      {name}
+                    </span>{" "}
+                    sent you a friend request!
+                  </p>
 
                   <p className="text-xs text-[#666] mt-1">
-                    {note.created_at ? new Date(note.created_at).toLocaleString() : ""}
+                    {new Date(note.created_at).toLocaleString()}
                   </p>
 
                   {note.type === "friend_request" && (
