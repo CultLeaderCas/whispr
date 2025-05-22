@@ -42,29 +42,6 @@ export default function NotificationBell() {
     );
   };
 
-  const handleAccept = async (noteId: string, fromUserId: string) => {
-    await supabase
-      .from("friend_requests")
-      .update({ status: "accepted" })
-      .eq("from_user_id", fromUserId);
-
-    await supabase.from("notifications").insert([
-      {
-        to_user_id: fromUserId,
-        message: `Your friend request was accepted!`,
-        type: "friend_request_accepted",
-        is_read: false,
-      },
-    ]);
-
-    markAsRead(noteId);
-  };
-
-  const handleDecline = async (noteId: string, fromUserId: string) => {
-    await supabase.from("friend_requests").delete().eq("from_user_id", fromUserId);
-    markAsRead(noteId);
-  };
-
   const getFromUserId = (note: any) =>
     note.from_user?.id ?? note.from_user_id;
 
@@ -96,12 +73,9 @@ export default function NotificationBell() {
               </p>
             )}
 
-            {notifications.map((note, index) => {
+            {notifications.map((note) => {
               const fromId = getFromUserId(note);
               const name = getDisplayName(note);
-              const type = note.type;
-
-              console.log(`🔍 Note[${index}] Type:`, type);
 
               return (
                 <div
@@ -111,7 +85,10 @@ export default function NotificationBell() {
                       ? "bg-[#1e1e1e] text-[#aaa]"
                       : "bg-[#272727] text-white border border-[#9500FF]"
                   }`}
-                  onClick={() => markAsRead(note.id)}
+                  onClick={async () => {
+                    await markAsRead(note.id);
+                    window.location.href = `/profile/${fromId}`;
+                  }}
                 >
                   <p className="text-sm italic">
                     <span className="font-semibold text-white italic">
@@ -123,40 +100,6 @@ export default function NotificationBell() {
                   <p className="text-xs text-[#666] mt-1">
                     {new Date(note.created_at).toLocaleString()}
                   </p>
-
-                  <p className="text-xs text-pink-400 italic mt-1">
-                    Type: {type || "undefined"}
-                  </p>
-
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAccept(note.id, fromId);
-                      }}
-                      className="flex-1 bg-[#12f7ff] text-[#111] font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#0fd0d0]"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDecline(note.id, fromId);
-                      }}
-                      className="flex-1 bg-[#9500FF] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#7a00cc]"
-                    >
-                      Decline
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.location.href = `/profile/${fromId}`;
-                      }}
-                      className="flex-1 bg-[#333] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#444]"
-                    >
-                      View
-                    </button>
-                  </div>
                 </div>
               );
             })}
