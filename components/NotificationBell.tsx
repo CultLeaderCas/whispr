@@ -91,7 +91,7 @@ export default function NotificationBell() {
                 You have no notifications.
               </p>
             )}
-
+console.log("🔍 note.type:", note.type);
             {notifications.map((note, i) => {
               const fromId = getFromUserId(note);
               const name = getDisplayName(note);
