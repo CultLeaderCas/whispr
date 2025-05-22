@@ -1,8 +1,24 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+type Notification = {
+  id: string;
+  to_user_id: string;
+  from_user_id: string;
+  from_user?: {
+    id: string;
+    displayName: string;
+    username: string;
+    profileImage?: string;
+  };
+  message: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
+};
+
 export default function NotificationBell() {
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showPanel, setShowPanel] = useState(false);
 
   useEffect(() => {
@@ -12,37 +28,41 @@ export default function NotificationBell() {
       if (!user) return;
 
       const { data, error } = await supabase
-  .from("notifications")
-  .select("*, from_user:from_user_id(id, displayName, username, profileImage)")
-  .eq("to_user_id", user.id)
-  .order("created_at", { ascending: false });
+        .from("notifications")
+        .select(`*, from_user:from_user_id (id, displayName, username, profileImage)`)
+        .eq("to_user_id", user.id)
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error("❌ Notification fetch error:", error.message);
         return;
       }
 
-      setNotifications(data || []);
+      if (data) {
+        setNotifications(data as Notification[]);
+      }
     };
 
-    const interval = setInterval(fetchNotifications, 1000);
-    return () => clearInterval(interval);
+    fetchNotifications();
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
-
-  const markAsRead = async (id: string) => {
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+  const markAsRead = async (noteId: string) => {
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      prev.map((n) => (n.id === noteId ? { ...n, is_read: true } : n))
     );
+    await supabase.from("notifications").update({ is_read: true }).eq("id", noteId);
   };
 
   const handleAccept = async (noteId: string, fromUserId: string) => {
+    const { data: session } = await supabase.auth.getUser();
+    const user = session?.user;
+    if (!user) return;
+
     await supabase
       .from("friend_requests")
       .update({ status: "accepted" })
-      .eq("from_user_id", fromUserId);
+      .eq("from_user_id", fromUserId)
+      .eq("to_user_id", user.id);
 
     await supabase.from("notifications").insert([
       {
@@ -57,7 +77,15 @@ export default function NotificationBell() {
   };
 
   const handleDecline = async (noteId: string, fromUserId: string) => {
-    await supabase.from("friend_requests").delete().eq("from_user_id", fromUserId);
+    const { data: session } = await supabase.auth.getUser();
+    const user = session?.user;
+    if (!user) return;
+
+    await supabase
+      .from("friend_requests")
+      .delete()
+      .eq("from_user_id", fromUserId)
+      .eq("to_user_id", user.id);
     markAsRead(noteId);
   };
 
@@ -66,6 +94,8 @@ export default function NotificationBell() {
 
   const getDisplayName = (note: any) =>
     note.from_user?.displayName ?? "Someone";
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
     <div className="relative">
@@ -90,12 +120,12 @@ export default function NotificationBell() {
               <p className="text-sm text-[#888] italic text-center">
                 You have no notifications.
               </p>
-            )}
-console.log("🔍 note.type:", note.type);
-            {notifications.map((note, i) => {
-              const fromId = getFromUserId(note);
-              const name = getDisplayName(note);
-              return (
+)}
+{notifications.map((note) => {
+  // console.log("🔍 note.type:", note.type);
+  const fromId = getFromUserId(note);
+  const name = getDisplayName(note);
+  return (
                 <div
                   key={note.id}
                   className={`p-3 rounded-lg transition cursor-pointer ${
@@ -113,7 +143,7 @@ console.log("🔍 note.type:", note.type);
                   </p>
 
                   <p className="text-xs text-[#666] mt-1">
-                    {new Date(note.created_at).toLocaleString()}
+                    {note.created_at ? new Date(note.created_at).toLocaleString() : ""}
                   </p>
 
                   {/* ✅ Always show buttons for now, fallback active */}
