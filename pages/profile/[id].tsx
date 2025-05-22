@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '@/lib/supabaseClient';
-import PulseLayout from '../pulse'; // adjust path if needed
+import PulseLayout from '../pulse'; // use '../pulse' if pulse.tsx is in /pages
 
 export default function UserProfile() {
   const router = useRouter();
@@ -81,42 +81,44 @@ export default function UserProfile() {
   if (!profile) return null;
 
   return (
-    <div className="min-h-screen bg-black text-white flex justify-center items-center">
-      <div className="bg-[#2a2a2a] rounded-3xl p-8 w-[340px] text-center shadow-xl border border-[#444]">
-        <img
-          src={profile.profileImage || '/default-avatar.png'}
-          alt="Profile"
-          className="w-24 h-24 rounded-full mx-auto border-2 border-[#9500FF] mb-4 object-cover"
-        />
-        <h2 className="text-2xl font-bold">{profile.displayName || 'Unknown'}</h2>
-        <p className="text-sm text-[#aaa]">@{profile.username}</p>
-        <p className="italic text-sm mt-2">{profile.bio || 'No bio set.'}</p>
+    <PulseLayout>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="bg-[#2a2a2a] rounded-3xl p-8 w-[340px] text-center shadow-xl border border-[#444]">
+          <img
+            src={profile.profileImage || '/default-avatar.png'}
+            alt="Profile"
+            className="w-24 h-24 rounded-full mx-auto border-2 border-[#9500FF] mb-4 object-cover"
+          />
+          <h2 className="text-2xl font-bold">{profile.displayName || 'Unknown'}</h2>
+          <p className="text-sm text-[#aaa]">@{profile.username}</p>
+          <p className="italic text-sm mt-2">{profile.bio || 'No bio set.'}</p>
 
-        {friendRequestStatus === 'incoming' && (
-          <div className="mt-4 flex gap-3 justify-center">
-            <button
-              onClick={handleAccept}
-              className="bg-[#12f7ff] text-black font-bold px-4 py-1 rounded-lg text-sm hover:bg-[#0fd0d0]"
-            >
-              Accept
-            </button>
-            <button
-              onClick={handleDecline}
-              className="bg-[#9500FF] text-white font-bold px-4 py-1 rounded-lg text-sm hover:bg-[#7a00cc]"
-            >
-              Decline
-            </button>
-          </div>
-        )}
+          {friendRequestStatus === 'incoming' && (
+            <div className="mt-4 flex gap-3 justify-center">
+              <button
+                onClick={handleAccept}
+                className="bg-[#12f7ff] text-black font-bold px-4 py-1 rounded-lg text-sm hover:bg-[#0fd0d0]"
+              >
+                Accept
+              </button>
+              <button
+                onClick={handleDecline}
+                className="bg-[#9500FF] text-white font-bold px-4 py-1 rounded-lg text-sm hover:bg-[#7a00cc]"
+              >
+                Decline
+              </button>
+            </div>
+          )}
 
-        {friendRequestStatus === 'outgoing' && (
-          <p className="text-xs text-[#888] mt-3 italic">Friend request sent.</p>
-        )}
+          {friendRequestStatus === 'outgoing' && (
+            <p className="text-xs text-[#888] mt-3 italic">Friend request sent.</p>
+          )}
 
-        {friendRequestStatus === 'accepted' && (
-          <p className="text-xs text-green-400 mt-3 italic">You are now friends.</p>
-        )}
+          {friendRequestStatus === 'accepted' && (
+            <p className="text-xs text-green-400 mt-3 italic">You are now friends.</p>
+          )}
+        </div>
       </div>
-    </div>
+    </PulseLayout>
   );
 }
