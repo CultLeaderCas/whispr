@@ -55,7 +55,7 @@ export default function NotificationBell() {
     setIsFadingOut(true);
 
     setTimeout(() => {
-   window.location.href = `/${fromId}`;
+window.location.href = `/profile/${fromId}`;
     }, 300); // Wait for animation
   };
 
