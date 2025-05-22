@@ -3,18 +3,18 @@ import { supabase } from "@/lib/supabaseClient";
 
 type Notification = {
   id: string;
-  to_user_id: string;
-  from_user_id: string;
+  type: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  from_user_id?: string;
+  to_user_id?: string;
   from_user?: {
     id: string;
     displayName: string;
     username: string;
     profileImage?: string;
   };
-  message: string;
-  type: string;
-  is_read: boolean;
-  created_at: string;
 };
 
 export default function NotificationBell() {
@@ -23,9 +23,13 @@ export default function NotificationBell() {
 
   useEffect(() => {
     const fetchNotifications = async () => {
-      const { data: session } = await supabase.auth.getUser();
+      const { data: session, error: authError } = await supabase.auth.getUser();
       const user = session?.user;
-      if (!user) return;
+
+      if (authError || !user) {
+        console.error("❌ Auth error or no user:", authError?.message);
+        return;
+      }
 
       const { data, error } = await supabase
         .from("notifications")
@@ -34,35 +38,28 @@ export default function NotificationBell() {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("❌ Notification fetch error:", error.message);
+        console.error("❌ Error fetching notifications:", error.message);
         return;
       }
 
-      if (data) {
-        setNotifications(data as Notification[]);
-      }
+      setNotifications(data || []);
     };
 
     fetchNotifications();
   }, []);
 
-  const markAsRead = async (noteId: string) => {
+  const markAsRead = async (id: string) => {
+    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
     setNotifications((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, is_read: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
     );
-    await supabase.from("notifications").update({ is_read: true }).eq("id", noteId);
   };
 
   const handleAccept = async (noteId: string, fromUserId: string) => {
-    const { data: session } = await supabase.auth.getUser();
-    const user = session?.user;
-    if (!user) return;
-
     await supabase
       .from("friend_requests")
       .update({ status: "accepted" })
-      .eq("from_user_id", fromUserId)
-      .eq("to_user_id", user.id);
+      .eq("from_user_id", fromUserId);
 
     await supabase.from("notifications").insert([
       {
@@ -73,26 +70,18 @@ export default function NotificationBell() {
       },
     ]);
 
-    markAsRead(noteId);
+    await markAsRead(noteId);
   };
 
   const handleDecline = async (noteId: string, fromUserId: string) => {
-    const { data: session } = await supabase.auth.getUser();
-    const user = session?.user;
-    if (!user) return;
-
-    await supabase
-      .from("friend_requests")
-      .delete()
-      .eq("from_user_id", fromUserId)
-      .eq("to_user_id", user.id);
-    markAsRead(noteId);
+    await supabase.from("friend_requests").delete().eq("from_user_id", fromUserId);
+    await markAsRead(noteId);
   };
 
-  const getFromUserId = (note: any) =>
+  const getFromUserId = (note: Notification) =>
     note.from_user?.id ?? note.from_user_id;
 
-  const getDisplayName = (note: any) =>
+  const getDisplayName = (note: Notification) =>
     note.from_user?.displayName ?? "Someone";
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
@@ -120,12 +109,13 @@ export default function NotificationBell() {
               <p className="text-sm text-[#888] italic text-center">
                 You have no notifications.
               </p>
-)}
-{notifications.map((note) => {
-  // console.log("🔍 note.type:", note.type);
-  const fromId = getFromUserId(note);
-  const name = getDisplayName(note);
-  return (
+            )}
+
+            {notifications.map((note) => {
+              const fromId = getFromUserId(note);
+              const name = getDisplayName(note);
+
+              return (
                 <div
                   key={note.id}
                   className={`p-3 rounded-lg transition cursor-pointer ${
@@ -135,47 +125,58 @@ export default function NotificationBell() {
                   }`}
                   onClick={() => markAsRead(note.id)}
                 >
-                  <p className="text-sm italic">
-                    <span className="font-semibold text-white italic">
-                      {name}
-                    </span>{" "}
-                    sent you a friend request!
-                  </p>
+                  {note.type === "friend_request" && (
+                    <p className="text-sm italic">
+                      <span className="font-semibold text-white italic">
+                        {name}
+                      </span>{" "}
+                      sent you a friend request!
+                    </p>
+                  )}
+                  {note.type !== "friend_request" && (
+                    <p className="text-sm italic">
+                      <span className="font-semibold text-white italic">
+                        {name}
+                      </span>{" "}
+                      {note.message}
+                    </p>
+                  )}
 
                   <p className="text-xs text-[#666] mt-1">
                     {note.created_at ? new Date(note.created_at).toLocaleString() : ""}
                   </p>
 
-                  {/* ✅ Always show buttons for now, fallback active */}
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAccept(note.id, fromId);
-                      }}
-                      className="flex-1 bg-[#12f7ff] text-[#111] font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#0fd0d0]"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDecline(note.id, fromId);
-                      }}
-                      className="flex-1 bg-[#9500FF] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#7a00cc]"
-                    >
-                      Decline
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.location.href = `/profile/${fromId}`;
-                      }}
-                      className="flex-1 bg-[#333] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#444]"
-                    >
-                      View
-                    </button>
-                  </div>
+                  {note.type === "friend_request" && (
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAccept(note.id, fromId);
+                        }}
+                        className="flex-1 bg-[#12f7ff] text-[#111] font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#0fd0d0]"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDecline(note.id, fromId);
+                        }}
+                        className="flex-1 bg-[#9500FF] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#7a00cc]"
+                      >
+                        Decline
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.location.href = `/profile/${fromId}`;
+                        }}
+                        className="flex-1 bg-[#333] text-white font-bold px-2 py-1 rounded-lg text-xs hover:bg-[#444]"
+                      >
+                        View
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
