@@ -8,9 +8,10 @@ export default function PublicProfile() {
   const { id } = router.query;
 
   const [profile, setProfile] = useState<any>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [friendRequest, setFriendRequest] = useState<any | null>(null);
   const [stars, setStars] = useState<JSX.Element[]>([]);
 
-  // 🌠 Star logic
   useEffect(() => {
     const colors = ['#12f7ff', '#fe019a', '#9500FF'];
     const newStars = Array.from({ length: 70 }).map((_, i) => {
@@ -43,26 +44,70 @@ export default function PublicProfile() {
     setStars(newStars);
   }, []);
 
-  // 🌌 Profile fetch
   useEffect(() => {
     if (!id) return;
 
-    const fetchProfile = async () => {
+    const fetchProfileData = async () => {
+      const { data: session } = await supabase.auth.getUser();
+      const user = session?.user;
+      setAuthUserId(user?.id || null);
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', id)
         .single();
 
-      if (error) {
-        console.error('Profile fetch error:', error.message);
-      } else {
+      if (!error && data) {
         setProfile(data);
       }
     };
 
-    fetchProfile();
+    fetchProfileData();
   }, [id]);
+
+  useEffect(() => {
+    if (!authUserId || !id) return;
+
+    const checkFriendRequest = async () => {
+      const { data } = await supabase
+        .from('friend_requests')
+        .select('*')
+        .or(`and(from_user_id.eq.${id},to_user_id.eq.${authUserId}),and(from_user_id.eq.${authUserId},to_user_id.eq.${id})`)
+        .eq('status', 'pending')
+        .single();
+
+      if (data) {
+        setFriendRequest(data);
+      }
+    };
+
+    checkFriendRequest();
+  }, [authUserId, id]);
+
+  const handleAccept = async () => {
+    if (!friendRequest) return;
+
+    await supabase
+      .from('friend_requests')
+      .update({ status: 'accepted' })
+      .eq('id', friendRequest.id);
+
+    setFriendRequest(null);
+    alert('✅ Friend request accepted!');
+  };
+
+  const handleDecline = async () => {
+    if (!friendRequest) return;
+
+    await supabase
+      .from('friend_requests')
+      .delete()
+      .eq('id', friendRequest.id);
+
+    setFriendRequest(null);
+    alert('❌ Friend request declined.');
+  };
 
   if (!profile) {
     return (
@@ -85,7 +130,6 @@ export default function PublicProfile() {
             transform: scale(1.2);
           }
         }
-
         .twinkle {
           animation: twinkle infinite alternate ease-in-out;
         }
@@ -94,7 +138,7 @@ export default function PublicProfile() {
       <div className="absolute inset-0 z-0">{stars}</div>
 
       <div className="relative z-10 flex items-center justify-center min-h-screen">
-        <div className="bg-[#111] p-8 rounded-2xl shadow-xl w-full max-w-md text-center border border-[#333]">
+        <div className="bg-[#111] p-8 rounded-3xl shadow-xl w-full max-w-sm text-center border border-[#333]">
           <img
             src={profile.profileImage || '/default-avatar.png'}
             alt="Profile"
@@ -108,6 +152,23 @@ export default function PublicProfile() {
             <p className="mt-3 text-[#12f7ff] text-xs font-mono uppercase">
               {profile.tagLabel}
             </p>
+          )}
+
+          {friendRequest && friendRequest.to_user_id === authUserId && (
+            <div className="mt-4 flex gap-3 justify-center">
+              <button
+                onClick={handleAccept}
+                className="bg-[#12f7ff] text-[#111] font-bold px-4 py-2 rounded-lg text-xs hover:bg-[#0fd0d0]"
+              >
+                Accept
+              </button>
+              <button
+                onClick={handleDecline}
+                className="bg-[#9500FF] text-white font-bold px-4 py-2 rounded-lg text-xs hover:bg-[#7a00cc]"
+              >
+                Decline
+              </button>
+            </div>
           )}
         </div>
       </div>
