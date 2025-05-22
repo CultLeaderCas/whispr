@@ -74,10 +74,11 @@ return (
 
       {/* Center Panel – Friends */}
       <div className="flex-1 p-6 overflow-y-auto">
-        <div className="absolute top-4 right-4 flex space-x-3">
-          <AddFriendsDropdown />
-          <NotificationBell />
-        </div>
+      <div className="absolute top-4 right-[300px] flex space-x-3 z-50">
+  <AddFriendsDropdown />
+  <NotificationBell />
+</div>
+
         <h2 className="text-xl font-bold mb-4">Friends</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {[1, 2, 3].map((i) => (
@@ -105,7 +106,8 @@ return (
       {/* Right Panel – Profile / Music */}
       <div className="w-[260px] bg-[#111] border-l border-[#333] p-4 sticky top-0 h-screen">
         <div className="text-center">
-          <img src="/default-avatar.png" className="w-20 h-20 rounded-full border-2 border-[#12f7ff] mx-auto mb-3" />
+        <img src="/default-avatar.png" className="w-16 h-16 rounded-full border-2 border-[#12f7ff] mx-auto mb-2" />
+
           <p className="font-bold">Cas ✿</p>
           <p className="text-sm text-[#aaa]">@cas</p>
         </div>
