@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showPanel, setShowPanel] = useState(false);
+  const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -48,8 +49,34 @@ export default function NotificationBell() {
   const getDisplayName = (note: any) =>
     note.from_user?.displayName ?? "Someone";
 
+  const handleCardClick = async (note: any) => {
+    const fromId = getFromUserId(note);
+    await markAsRead(note.id);
+    setIsFadingOut(true);
+
+    setTimeout(() => {
+      window.location.href = `/profile/${fromId}`;
+    }, 300); // Wait for animation
+  };
+
   return (
     <div className="relative">
+      <style jsx>{`
+        .fade-out {
+          animation: fadeOut 0.3s ease forwards;
+        }
+        @keyframes fadeOut {
+          from {
+            opacity: 1;
+            transform: scale(1);
+          }
+          to {
+            opacity: 0;
+            transform: scale(0.98);
+          }
+        }
+      `}</style>
+
       <button
         className="text-3xl relative hover:scale-110 transition"
         onClick={() => setShowPanel(!showPanel)}
@@ -64,7 +91,11 @@ export default function NotificationBell() {
       </button>
 
       {showPanel && (
-        <div className="absolute right-0 mt-2 w-80 bg-[#111] border border-[#333] text-white rounded-xl p-4 shadow-xl z-50 backdrop-blur">
+        <div
+          className={`absolute right-0 mt-2 w-80 bg-[#111] border border-[#333] text-white rounded-xl p-4 shadow-xl z-50 backdrop-blur transition-opacity duration-300 ${
+            isFadingOut ? "fade-out" : ""
+          }`}
+        >
           <h3 className="text-lg font-bold mb-2">Notifications</h3>
           <div className="space-y-3 max-h-64 overflow-y-auto custom-scroll">
             {notifications.length === 0 && (
@@ -80,15 +111,12 @@ export default function NotificationBell() {
               return (
                 <div
                   key={note.id}
-                  className={`p-3 rounded-lg transition cursor-pointer ${
+                  className={`p-3 rounded-lg transition-all duration-200 cursor-pointer transform hover:scale-[1.015] hover:border-[#12f7ff] ${
                     note.is_read
                       ? "bg-[#1e1e1e] text-[#aaa]"
                       : "bg-[#272727] text-white border border-[#9500FF]"
                   }`}
-                  onClick={async () => {
-                    await markAsRead(note.id);
-                    window.location.href = `/profile/${fromId}`;
-                  }}
+                  onClick={() => handleCardClick(note)}
                 >
                   <p className="text-sm italic">
                     <span className="font-semibold text-white italic">
