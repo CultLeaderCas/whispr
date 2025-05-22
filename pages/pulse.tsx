@@ -126,9 +126,11 @@ return (
 );
 }
 
+
 function NotificationBell() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showPanel, setShowPanel] = useState(false);
+  const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -139,18 +141,16 @@ function NotificationBell() {
 
       const { data } = await supabase
         .from('notifications')
-        .select('*')
+        .select('*, from_user:from_user_id (id, displayName)')
         .eq('to_user_id', user.id)
         .order('created_at', { ascending: false });
 
       setNotifications(data || []);
     };
 
-    const interval = setInterval(fetch, 1000); // Pulls notifications every 1 second
-    return () => clearInterval(interval); // Clean up the interval on unmount
+    const interval = setInterval(fetch, 1000);
+    return () => clearInterval(interval);
   }, []);
-
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const markAsRead = async (id: string) => {
     await supabase.from('notifications').update({ is_read: true }).eq('id', id);
@@ -159,23 +159,52 @@ function NotificationBell() {
     );
   };
 
+  const handleCardClick = async (note: any) => {
+    const fromId = note.from_user?.id ?? note.from_user_id;
+    await markAsRead(note.id);
+    setIsFadingOut(true);
+    setTimeout(() => {
+      window.location.href = `/profile/${fromId}`;
+    }, 300);
+  };
+
   return (
     <div className="relative">
+      <style jsx>{`
+        .fade-out {
+          animation: fadeOut 0.3s ease forwards;
+        }
+        @keyframes fadeOut {
+          from {
+            opacity: 1;
+            transform: scale(1);
+          }
+          to {
+            opacity: 0;
+            transform: scale(0.98);
+          }
+        }
+      `}</style>
+
       <button
         className="text-3xl relative hover:scale-110 transition"
         onClick={() => setShowPanel(!showPanel)}
         title="Notifications"
       >
         🔔
-        {unreadCount > 0 && (
+        {notifications.some((n) => !n.is_read) && (
           <span className="absolute -top-2 -right-2 bg-[#fe019a] text-white text-xs px-2 rounded-full font-bold shadow">
-            {unreadCount}
+            {notifications.filter((n) => !n.is_read).length}
           </span>
         )}
       </button>
 
       {showPanel && (
-        <div className="absolute right-0 mt-2 w-80 bg-[#111] border border-[#333] text-white rounded-xl p-4 shadow-xl z-50 backdrop-blur">
+        <div
+          className={`absolute right-0 mt-2 w-80 bg-[#111] border border-[#333] text-white rounded-xl p-4 shadow-xl z-50 backdrop-blur transition-opacity duration-300 ${
+            isFadingOut ? "fade-out" : ""
+          }`}
+        >
           <h3 className="text-lg font-bold mb-2">Notifications</h3>
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {notifications.length === 0 && (
@@ -183,22 +212,28 @@ function NotificationBell() {
                 You have no Notifications.
               </p>
             )}
-            {notifications.map((note) => (
-              <div
-                key={note.id}
-                className={`p-3 rounded-lg transition cursor-pointer ${
-                  note.is_read
-                    ? 'bg-[#1e1e1e] text-[#aaa]'
-                    : 'bg-[#272727] text-white border border-[#9500FF]'
-                }`}
-                onClick={() => markAsRead(note.id)}
-              >
-                <p className="text-sm">{note.message}</p>
-                <p className="text-xs text-[#666] mt-1">
-                  {new Date(note.created_at).toLocaleString()}
-                </p>
-              </div>
-            ))}
+            {notifications.map((note) => {
+              const name = note.from_user?.displayName || "Someone";
+              return (
+                <div
+                  key={note.id}
+                  className={`p-3 rounded-lg transition-all duration-200 cursor-pointer transform hover:scale-[1.015] hover:border-[#12f7ff] ${
+                    note.is_read
+                      ? "bg-[#1e1e1e] text-[#aaa]"
+                      : "bg-[#272727] text-white border border-[#9500FF]"
+                  }`}
+                  onClick={() => handleCardClick(note)}
+                >
+                  <p className="text-sm italic">
+                    <span className="font-semibold text-white italic">{name}</span>{" "}
+                    sent you a friend request!
+                  </p>
+                  <p className="text-xs text-[#666] mt-1">
+                    {new Date(note.created_at).toLocaleString()}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
