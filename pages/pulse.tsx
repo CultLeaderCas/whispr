@@ -5,6 +5,33 @@ import { supabase } from '@/lib/supabaseClient';
 export default function PulseLayout({ children }: { children: React.ReactNode }) {
   const [stars, setStars] = useState<JSX.Element[]>([]);
 
+  const [friends, setFriends] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchFriends = async () => {
+      const { data: session } = await supabase.auth.getUser();
+      const user = session?.user;
+      if (!user) return;
+
+      const { data: friendLinks } = await supabase
+        .from('friends')
+        .select('friend_id')
+        .eq('user_id', user.id);
+
+      const friendIds = friendLinks?.map(f => f.friend_id) || [];
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', friendIds);
+
+      setFriends(profiles || []);
+    };
+
+    fetchFriends();
+  }, []);
+
+
   useEffect(() => {
     const colors = ['#12f7ff', '#fe019a', '#9500FF'];
     const newStars = Array.from({ length: 70 }).map((_, i) => {
@@ -81,21 +108,21 @@ return (
 
         <h2 className="text-xl font-bold mb-4">Friends</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {[1, 2, 3].map((i) => (
+          {friends.map((friend, index) => (
             <div
-              key={i}
+              key={friend.id || index}
               className="bg-[#1e1e1e] p-4 rounded-2xl shadow-lg hover:bg-[#272727] transition cursor-pointer"
-              onClick={() => window.location.href = `/messages/fake-${i}`}
+              onClick={() => window.location.href = `/profile/${friend.id}`}
             >
               <img
-                src="/default-avatar.png"
-                alt="Friend"
+                src={friend.profileImage || '/default-avatar.png'}
+                alt={friend.displayName || 'Friend'}
                 className="w-16 h-16 rounded-full border-2 border-[#12f7ff] object-cover mx-auto mb-2"
               />
               <div className="text-center">
-                <p className="font-bold">Whispr Test {i}</p>
-                <p className="text-sm text-[#aaa]">@test{i}</p>
-                <p className="text-xs italic text-[#555] mt-1">Status: Testing…</p>
+                <p className="font-bold">{friend.displayName || 'Unknown'}</p>
+                <p className="text-sm text-[#aaa]">@{friend.username}</p>
+                <p className="text-xs italic text-[#555] mt-1">💫 Friend</p>
               </div>
             </div>
           ))}
