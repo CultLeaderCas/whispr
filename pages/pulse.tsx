@@ -8,7 +8,7 @@ import Image from 'next/image';
 // Define a Profile interface for better type safety
 type Profile = {
   themeColor: string;
-  public_status: string;
+  public_status: JSX.Element;
   id: string;
   username: string;
   displayName: string;
