@@ -604,6 +604,7 @@ function MyProfileCorner() {
               {(['online', 'away', 'dnd', 'offline'] as const).map((status) => (
                 <button
                   key={status}
+                  type="button"
                   onClick={() => handleOnlineStatusChange(status)}
                   title={status.charAt(0).toUpperCase() + status.slice(1)}
                   className={`flex-1 p-1.5 sm:p-2 rounded-lg text-xs font-semibold capitalize transition-all duration-200
@@ -618,6 +619,13 @@ function MyProfileCorner() {
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={() => handleUpdateProfile('online_status', currentOnlineStatus)}
+              className="w-full mt-3 bg-[#12f7ff] text-[#111] font-bold px-3 py-1 rounded-lg text-sm hover:bg-[#0fd0d0] transition"
+            >
+              💾 Save Status
+            </button>
           </div>
 
           {/* Public Status Input - REMAINS FUNCTIONAL */}
