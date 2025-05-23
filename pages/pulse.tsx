@@ -512,24 +512,57 @@ function AddFriendsDropdown() {
 }
 
 // --- MyProfileCorner Component (unchanged) ---
-function MyProfileCorner() {
-  const [profile, setProfile] = useState<any>(null);
+// components/MyProfileCorner.tsx
+import { useEffect, useState, useRef } from 'react';
+import { supabase } from '@/lib/supabaseClient'; // Make sure this path is correct
+import Image from 'next/image';
+import { useRouter } from 'next/router';
 
+interface Profile {
+  id: string;
+  username: string;
+  displayName: string;
+  profileImage: string;
+  themeColor?: string;
+  online_status?: 'online' | 'away' | 'dnd' | 'offline';
+  bio?: string;
+  public_status?: string;
+}
+
+export default function MyProfileCorner() {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  const [currentBio, setCurrentBio] = useState('');
+  const [currentPublicStatus, setCurrentPublicStatus] = useState('');
+  const [currentOnlineStatus, setCurrentOnlineStatus] = useState<'online' | 'away' | 'dnd' | 'offline'>('offline');
+
+  // Map status to glow styles (Tailwind colors used for reference)
+  const statusGlowStyles = {
+    online: '0 0 0 2px #22C55E, 0 0 10px 5px rgba(34,197,94,0.7)',   // Green glow (Tailwind green-500)
+    away: '0 0 0 2px #F59E0B, 0 0 10px 5px rgba(245,158,11,0.7)',     // Yellow glow (Tailwind yellow-500)
+    dnd: '0 0 0 2px #EF4444, 0 0 10px 5px rgba(239,68,68,0.7)',       // Red glow (Tailwind red-500)
+    offline: '0 0 0 2px #6B7280, 0 0 8px 3px rgba(107,114,128,0.5)',  // Gray glow (Tailwind gray-500) or 'white' for visibility
+  };
+
+  // 1. Fetch User Profile
   useEffect(() => {
     const fetchMyProfile = async () => {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
 
       if (userError) {
-        console.error('🔒 Auth error:', userError.message);
+        console.error('🔒 Auth error fetching user for MyProfileCorner:', userError.message);
         return;
       }
 
       if (!user) {
-        console.warn('⚠️ No user found in session');
+        console.warn('⚠️ No user found in session for MyProfileCorner');
+        setProfile(null);
+        router.push('/join'); // Redirect to join page if no user
         return;
       }
-
-      console.log('🔍 Current user ID:', user.id);
 
       const { data, error } = await supabase
         .from('profiles')
@@ -538,39 +571,265 @@ function MyProfileCorner() {
         .single();
 
       if (error || !data) {
-        console.warn('⚠️ No profile found, redirecting...');
-        window.location.href = '/join';
+        console.warn('⚠️ No profile found for current user, redirecting to join/onboarding:', error?.message);
+        setProfile(null);
+        router.push('/join'); // Redirect if profile doesn't exist
         return;
       }
 
       setProfile(data);
+      setCurrentBio(data.bio || '');
+      setCurrentPublicStatus(data.public_status || '');
+      setCurrentOnlineStatus(data.online_status || 'offline');
     };
 
     fetchMyProfile();
+
+    // Realtime subscription for current user's profile changes
+    // This assumes the 'profiles' table has Row Level Security (RLS) policies
+    // that allow users to only see/update their own profile.
+    const profileId = profile?.id; // Capture profile.id for the cleanup
+    if (profileId) { // Only subscribe if profile ID is known
+        const channel = supabase
+            .channel(`profile_changes:${profileId}`)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${profileId}` }, payload => {
+                console.log('Realtime profile update received!', payload.new);
+                setProfile(payload.new as Profile);
+                setCurrentBio(payload.new.bio || '');
+                setCurrentPublicStatus(payload.new.public_status || '');
+                setCurrentOnlineStatus(payload.new.online_status || 'offline');
+            })
+            .subscribe();
+
+        return () => {
+            console.log('Unsubscribing from profile changes channel.');
+            channel.unsubscribe();
+        };
+    }
+  }, [router, profile?.id]); // Re-run if router changes or profile ID changes
+
+  // 2. Click outside to close settings
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
+
+  // 3. Update handlers for settings
+  const handleUpdateProfile = async (field: string, value: any) => {
+    if (!profile?.id) {
+        console.warn('Attempted to update profile without a valid user ID.');
+        return;
+    }
+
+    const updates = {
+      [field]: value,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', profile.id);
+
+    if (error) {
+      console.error(`❌ Error updating ${field}:`, error.message);
+      // alert(`Failed to update ${field}.`); // Consider less intrusive feedback
+    } else {
+      console.log(`✅ ${field} updated successfully.`);
+      // Realtime subscription will handle UI update, no need to setProfile here
+    }
+  };
+
+  const handleOnlineStatusChange = (status: 'online' | 'away' | 'dnd' | 'offline') => {
+    setCurrentOnlineStatus(status); // Optimistic update
+    handleUpdateProfile('online_status', status);
+  };
+
+  const handleBioChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCurrentBio(e.target.value);
+    debounceUpdateBio(e.target.value);
+  };
+
+  const handlePublicStatusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentPublicStatus(e.target.value);
+    debounceUpdatePublicStatus(e.target.value);
+  };
+
+  // Debounce for bio and public status updates
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const debounceUpdate = (value: string, field: string) => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      handleUpdateProfile(field, value);
+    }, 500);
+  };
+
+  const debounceUpdateBio = (value: string) => debounceUpdate(value, 'bio');
+  const debounceUpdatePublicStatus = (value: string) => debounceUpdate(value, 'public_status');
 
   if (!profile) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 bg-[#111] border border-[#333] text-white rounded-2xl shadow-xl p-4 flex items-center space-x-3 max-w-sm backdrop-blur-md">
-      <Image
-        src={profile.profileImage || '/default-avatar.png'}
-        alt="Me"
-        width={48}
-        height={48}
-        className="w-12 h-12 rounded-full object-cover border-2"
-        style={{ borderColor: profile.themeColor || '#12f7ff' }}
-      />
-      <div className="flex flex-col">
-        <p className="text-sm font-bold">{profile.displayName || 'Me'}</p>
-        <p className="text-xs text-[#aaa]">@{profile.username}</p>
-      </div>
-      <a
-        href="/profile"
-        className="ml-auto px-3 py-1 bg-[#12f7ff] text-[#111] font-bold text-xs rounded-lg hover:bg-[#0fd0d0] transition"
+    <div className="fixed bottom-5 right-5 z-50">
+      {/* Main Profile Card - Click Target */}
+      <div
+        className="bg-[#111] border border-[#333] text-white rounded-2xl shadow-xl p-3 flex items-center space-x-3 cursor-pointer hover:bg-[#1e1e1e] transition-all duration-200 backdrop-blur-md"
+        onClick={() => setShowSettings(!showSettings)}
       >
-        Edit
-      </a>
+        {/* Profile Image with Glowing Ring */}
+        <div
+          className={`w-12 h-12 rounded-full overflow-hidden transition-shadow duration-200 ease-in-out flex-shrink-0`}
+          style={{
+            boxShadow: statusGlowStyles[profile.online_status || 'offline'],
+            border: `2px solid ${profile.themeColor || '#12f7ff'}` // Optional: keep theme color as a base border
+          }}
+        >
+          <Image
+            src={profile.profileImage || '/default-avatar.png'}
+            alt={profile.displayName || 'Me'}
+            width={48}
+            height={48}
+            className="w-full h-full object-cover"
+          />
+        </div>
+
+        {/* Profile Text Info */}
+        <div className="flex flex-col">
+          <p className="text-sm font-bold">{profile.displayName || 'Me'}</p>
+          <p className="text-xs text-[#aaa]">@{profile.username}</p>
+          {profile.public_status && (
+            <p className="text-xs text-[#9500FF] italic mt-1 truncate max-w-[120px]">
+              {profile.public_status}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Pop-out Settings Panel */}
+      {showSettings && (
+        <div
+          ref={settingsRef}
+          className="absolute bottom-full right-0 mb-3 w-72 bg-[#111] border border-[#333] text-white rounded-2xl shadow-2xl p-4 transition-all duration-300 transform origin-bottom-right animate-pop-in z-50"
+        >
+          <style jsx>{`
+            @keyframes pop-in {
+              0% { opacity: 0; transform: scale(0.9) translateY(10px); }
+              100% { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            .animate-pop-in {
+              animation: pop-in 0.2s ease-out forwards;
+            }
+          `}</style>
+          <h3 className="text-lg font-bold mb-3 text-center">Quick Settings</h3>
+
+          {/* Profile Mirror in Pop-out */}
+          <div className="flex items-center space-x-3 mb-4 border-b border-[#222] pb-3">
+             <div
+                className={`w-14 h-14 rounded-full overflow-hidden transition-shadow duration-200 ease-in-out flex-shrink-0`}
+                style={{
+                    boxShadow: statusGlowStyles[profile.online_status || 'offline'],
+                    border: `2px solid ${profile.themeColor || '#12f7ff'}` // Optional: keep theme color as a base border
+                }}
+             >
+                <Image
+                    src={profile.profileImage || '/default-avatar.png'}
+                    alt={profile.displayName || 'Me'}
+                    width={56}
+                    height={56}
+                    className="w-full h-full object-cover"
+                />
+             </div>
+             <div className="flex flex-col">
+                <p className="text-md font-bold">{profile.displayName || 'Me'}</p>
+                <p className="text-sm text-[#aaa]">@{profile.username}</p>
+                <a href="/profile" className="text-xs text-[#12f7ff] hover:underline mt-1">
+                   View Full Profile
+                </a>
+             </div>
+          </div>
+
+          {/* Online Status Selector */}
+          <div className="mb-4">
+            <label className="block text-sm font-semibold mb-2">Online Status</label>
+            <div className="flex justify-around space-x-2">
+              {['online', 'away', 'dnd', 'offline'].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => handleOnlineStatusChange(status as 'online' | 'away' | 'dnd' | 'offline')}
+                  className={`flex-1 p-2 rounded-lg text-xs font-semibold capitalize transition-all duration-200
+                    ${profile.online_status === status ? 'border-2 border-current' : ''}
+                    ${status === 'online' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
+                    ${status === 'away' ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : ''}
+                    ${status === 'dnd' ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
+                    ${status === 'offline' ? 'bg-gray-700 hover:bg-gray-800 text-white' : ''}
+                  `}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Public Status Input */}
+          <div className="mb-4">
+            <label htmlFor="publicStatus" className="block text-sm font-semibold mb-2">
+              Public Status (visible to all)
+            </label>
+            <input
+              id="publicStatus"
+              type="text"
+              value={currentPublicStatus}
+              onChange={handlePublicStatusChange}
+              onBlur={() => debounceUpdatePublicStatus(currentPublicStatus)} // Save on blur
+              onKeyDown={(e) => { // Save on Enter key
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur(); // Trigger blur to save
+                }
+              }}
+              maxLength={50}
+              placeholder="e.g., Playing Cyberpunk 2077"
+              className="w-full p-2 text-sm bg-[#1e1e1e] border border-[#222] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#9500FF]"
+            />
+            <p className="text-right text-xs text-[#666] mt-1">{currentPublicStatus.length}/50</p>
+          </div>
+
+          {/* Bio Textarea */}
+          <div className="mb-4">
+            <label htmlFor="bio" className="block text-sm font-semibold mb-2">
+              Bio
+            </label>
+            <textarea
+              id="bio"
+              value={currentBio}
+              onChange={handleBioChange}
+              onBlur={() => debounceUpdateBio(currentBio)} // Save on blur
+              rows={3}
+              placeholder="Tell us about yourself..."
+              className="w-full p-2 text-sm bg-[#1e1e1e] border border-[#222] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#9500FF] resize-y"
+            ></textarea>
+          </div>
+
+          {/* Full Profile Link */}
+          <div className="text-center mt-4">
+            <a
+              href="/profile"
+              className="px-4 py-2 bg-[#fe019a] text-white font-bold text-sm rounded-xl hover:bg-[#d0017e] transition shadow-md"
+            >
+              Go to Full Profile
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
