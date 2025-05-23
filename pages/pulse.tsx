@@ -312,11 +312,25 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
               🎵 No song playing<br />
               {/* Display current user's online status from right panel profile if available */}
               {currentUsersProfile?.online_status ? (
-                <span className={`capitalize ${currentUsersProfile.online_status === 'online' ? 'text-green-400' : currentUsersProfile.online_status === 'dnd' ? 'text-red-400' : currentUsersProfile.online_status === 'away' ? 'text-yellow-400' : 'text-gray-400'}`}>
-                  🟢 {currentUsersProfile.online_status}
+                <span className={`capitalize ${
+                  currentUsersProfile.online_status === 'online'
+                    ? 'text-green-400'
+                    : currentUsersProfile.online_status === 'dnd'
+                    ? 'text-red-400'
+                    : currentUsersProfile.online_status === 'away'
+                    ? 'text-yellow-400'
+                    : 'text-gray-400'
+                }`}>
+                  {currentUsersProfile.online_status === 'online'
+                    ? '🍏 Online'
+                    : currentUsersProfile.online_status === 'dnd'
+                    ? '🍒 DND'
+                    : currentUsersProfile.online_status === 'away'
+                    ? '🍌 Away'
+                    : '🖤 Offline'}
                 </span>
               ) : (
-                <span className="text-gray-400">⚪ Offline</span>
+                <span className="text-gray-400">🖤 Offline</span>
               )}
             </div>
           </div>
