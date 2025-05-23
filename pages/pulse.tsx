@@ -1,6 +1,6 @@
 // pulse.tsx - Consolidated Layout and Components
 
-import { useEffect, useState, useRef, JSX } from 'react'; // Combined imports
+import { useEffect, useState, useRef, JSX } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
@@ -36,12 +36,12 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
 
       if (!user) {
         setCurrentUsersProfile(null);
-        // router.push('/login'); // Uncomment if you want to redirect to login
+        // router.push('/login');
         return;
       }
 
       if (currentUsersProfile && currentUsersProfile.id === user.id) {
-        return; // Avoid refetching if already loaded for the same user
+        return;
       }
 
       const { data: profile, error: profileError } = await supabase
@@ -53,14 +53,14 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
       if (profileError || !profile) {
         console.warn('⚠️ No profile found for current user, or error:', profileError?.message);
         setCurrentUsersProfile(null);
-        // router.push('/onboarding'); // Uncomment if you want to redirect to onboarding
+        // router.push('/onboarding');
         return;
       }
       setCurrentUsersProfile(profile);
     };
 
     fetchCurrentUsersProfile();
-  }, [router.isReady]); // Depend on router.isReady
+  }, [router.isReady]);
 
   // --- Existing Friends Fetch useEffect ---
   useEffect(() => {
@@ -86,6 +86,40 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
 
     fetchFriends();
   }, []);
+
+
+  // --- NEW: Real-time updates for friends' profiles ---
+  useEffect(() => {
+    if (friends.length === 0) return; // Don't subscribe if no friends yet
+
+    const friendIds = friends.map(f => f.id);
+    const filterString = `id=in.(${friendIds.join(',')})`; // e.g., 'id=in.(uuid1,uuid2,uuid3)'
+
+    const channel = supabase
+      .channel('friends_profiles_updates') // A distinct channel name
+      .on('postgres_changes', {
+        event: 'UPDATE', // Listen for UPDATE events
+        schema: 'public',
+        table: 'profiles',
+        filter: filterString // Only listen for changes to our friends' profiles
+      }, payload => {
+        console.log('Realtime friend profile update received!', payload.new);
+        // Update the 'friends' state with the new data
+        setFriends(prevFriends =>
+          prevFriends.map(friend =>
+            friend.id === payload.new.id ? { ...friend, ...(payload.new as Profile) } : friend
+          )
+        );
+      })
+      .subscribe();
+
+    return () => {
+      console.log('Unsubscribing from friends_profiles_updates channel.');
+      channel.unsubscribe();
+    };
+    // Re-subscribe if the `friends` array itself changes (e.g., friend added/removed)
+  }, [friends]);
+
 
   // --- Existing Stars Animation useEffect ---
   useEffect(() => {
@@ -170,16 +204,32 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
                 className="bg-[#1e1e1e] p-4 rounded-2xl shadow-lg hover:bg-[#272727] transition cursor-pointer"
                 onClick={() => handleFriendCardClick(friend.id)}
               >
-                <Image
-                  src={friend.profileImage || '/default-avatar.png'}
-                  alt={friend.displayName || 'Friend'}
-                  width={64}
-                  height={64}
-                  className="w-16 h-16 rounded-full border-2 border-[#12f7ff] object-cover mx-auto mb-2"
-                />
+                {/* Friend's Profile Image with status glow */}
+                <div
+                    className={`relative w-16 h-16 rounded-full overflow-hidden mx-auto mb-2 transition-shadow duration-200 ease-in-out`}
+                    // Use a separate glow style for friends if you want, or just re-use the main one
+                    // Adjust glow properties if needed for this larger size
+                    style={{
+                        boxShadow: statusGlowStyles[friend.online_status || 'offline'],
+                        border: `2px solid ${friend.themeColor || '#12f7ff'}`
+                    }}
+                >
+                    <Image
+                      src={friend.profileImage || '/default-avatar.png'}
+                      alt={friend.displayName || 'Friend'}
+                      width={64}
+                      height={64}
+                      className="w-full h-full object-cover"
+                    />
+                </div>
                 <div className="text-center">
                   <p className="font-bold">{friend.displayName || 'Unknown'}</p>
                   <p className="text-sm text-[#aaa]">@{friend.username}</p>
+                  {friend.public_status && ( // Display public status for friends too
+                    <p className="text-xs italic text-[#9500FF] mt-1 truncate">
+                        {friend.public_status}
+                    </p>
+                  )}
                   <p className="text-xs italic text-[#555] mt-1">💫 Friend</p>
                 </div>
               </div>
@@ -230,13 +280,22 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
         </div>
       </div>
 
-      {/* MyProfileCorner remains for the bottom-right, now directly in this file */}
+      {/* MyProfileCorner (now defined below) */}
       <MyProfileCorner />
     </div>
   );
 }
 
 // --- MyProfileCorner Component (now internal to PulseLayout.tsx) ---
+// Define statusGlowStyles outside of MyProfileCorner if used in other components,
+// or inside if strictly only for MyProfileCorner. For this example, keeping it here.
+const statusGlowStyles = {
+  online: '0 0 0 2px #22C55E, 0 0 10px 5px rgba(34,197,94,0.7)',   // Green glow (Tailwind green-500)
+  away: '0 0 0 2px #F59E0B, 0 0 10px 5px rgba(245,158,11,0.7)',     // Yellow glow (Tailwind yellow-500)
+  dnd: '0 0 0 2px #EF4444, 0 0 10px 5px rgba(239,68,68,0.7)',       // Red glow (Tailwind red-500)
+  offline: '0 0 0 2px #6B7280, 0 0 8px 3px rgba(107,114,128,0.5)',  // Gray glow (Tailwind gray-500) or 'white' for visibility
+};
+
 function MyProfileCorner() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -247,13 +306,6 @@ function MyProfileCorner() {
   const [currentPublicStatus, setCurrentPublicStatus] = useState('');
   const [currentOnlineStatus, setCurrentOnlineStatus] = useState<'online' | 'away' | 'dnd' | 'offline'>('offline');
 
-  // Map status to glow styles (Tailwind colors used for reference)
-  const statusGlowStyles = {
-    online: '0 0 0 2px #22C55E, 0 0 10px 5px rgba(34,197,94,0.7)',   // Green glow (Tailwind green-500)
-    away: '0 0 0 2px #F59E0B, 0 0 10px 5px rgba(245,158,11,0.7)',     // Yellow glow (Tailwind yellow-500)
-    dnd: '0 0 0 2px #EF4444, 0 0 10px 5px rgba(239,68,68,0.7)',       // Red glow (Tailwind red-500)
-    offline: '0 0 0 2px #6B7280, 0 0 8px 3px rgba(107,114,128,0.5)',  // Gray glow (Tailwind gray-500) or 'white' for visibility
-  };
 
   // 1. Fetch User Profile
   useEffect(() => {
@@ -268,7 +320,7 @@ function MyProfileCorner() {
       if (!user) {
         console.warn('⚠️ No user found in session for MyProfileCorner');
         setProfile(null);
-        router.push('/join'); // Redirect to join page if no user
+        router.push('/join');
         return;
       }
 
@@ -281,7 +333,7 @@ function MyProfileCorner() {
       if (error || !data) {
         console.warn('⚠️ No profile found for current user, redirecting to join/onboarding:', error?.message);
         setProfile(null);
-        router.push('/join'); // Redirect if profile doesn't exist
+        router.push('/join');
         return;
       }
 
@@ -297,9 +349,9 @@ function MyProfileCorner() {
     const profileId = profile?.id;
     if (profileId) {
         const channel = supabase
-            .channel(`profile_changes:${profileId}`)
+            .channel(`my_profile_changes:${profileId}`) // Distinct channel name for user's own profile
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${profileId}` }, payload => {
-                console.log('Realtime profile update received!', payload.new);
+                console.log('Realtime my profile update received!', payload.new);
                 setProfile(payload.new as Profile);
                 setCurrentBio(payload.new.bio || '');
                 setCurrentPublicStatus(payload.new.public_status || '');
@@ -308,11 +360,12 @@ function MyProfileCorner() {
             .subscribe();
 
         return () => {
-            console.log('Unsubscribing from profile changes channel.');
+            console.log('Unsubscribing from my_profile_changes channel.');
             channel.unsubscribe();
         };
     }
-  }, [router, profile?.id]);
+  }, [router, profile?.id]); // Depend on router.isReady if you prefer to wait for hydration
+
 
   // 2. Click outside to close settings
   useEffect(() => {
@@ -334,6 +387,12 @@ function MyProfileCorner() {
         return;
     }
 
+    // Optimistically update the local profile state FIRST
+    setProfile(prev => {
+        if (!prev) return null;
+        return { ...prev, [field]: value };
+    });
+
     const updates = {
       [field]: value,
       updated_at: new Date().toISOString(),
@@ -346,14 +405,15 @@ function MyProfileCorner() {
 
     if (error) {
       console.error(`❌ Error updating ${field}:`, error.message);
+      // Optional: Revert optimistic update or re-fetch if there's a critical error
+      // fetchMyProfile();
     } else {
       console.log(`✅ ${field} updated successfully.`);
     }
   };
 
   const handleOnlineStatusChange = (status: 'online' | 'away' | 'dnd' | 'offline') => {
-    setCurrentOnlineStatus(status);
-    handleUpdateProfile('online_status', status);
+    handleUpdateProfile('online_status', status); // `setProfile` inside handleUpdateProfile does optimistic update
   };
 
   const handleBioChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -782,7 +842,7 @@ function AddFriendsDropdown() {
                   {adding === user.id ? '...' : 'Add'}
                 </button>
                 <button
-                  className="ml-1 px-2 py-1 bg-[#9500FF] text-white text-xs rounded-lg font-bold hover:bg-[#7a00cc]"
+                  className="ml-1 px-2 py-1 bg-[#9500FF] text-white text-xs rounded-lg font-bold hover:bg-[#7a00cc}"
                   onClick={() => handleViewProfile(user.id)}
                 >
                   View
