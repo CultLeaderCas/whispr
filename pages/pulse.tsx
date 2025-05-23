@@ -1,7 +1,7 @@
 // pulse.tsx - Consolidated Layout and Components
 
 import { useEffect, useState, useRef, JSX } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabaseClient'; // Assuming this path is correct
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 
@@ -11,11 +11,19 @@ interface Profile {
   username: string;
   displayName: string;
   profileImage: string;
-  themeColor?: string;
-  online_status?: 'online' | 'away' | 'dnd' | 'offline';
+  themeColor?: string; // Re-introduced for dynamic border color
+  online_status?: 'online' | 'away' | 'dnd' | 'offline'; // Used for glow and status text
   bio?: string;
   public_status?: string;
 }
+
+// --- StatusGlowStyles (Re-introduced for dynamic glow effects) ---
+const statusGlowStyles = {
+  online: '0 0 0 2px #22C55E, 0 0 10px 5px rgba(34,197,94,0.7)',
+  away: '0 0 0 2px #F59E0B, 0 0 10px 5px rgba(245,158,11,0.7)',
+  dnd: '0 0 0 2px #EF4444, 0 0 10px 5px rgba(239,68,68,0.7)',
+  offline: '0 0 0 2px #6B7280, 0 0 8px 3px rgba(107,114,128,0.5)',
+};
 
 export default function PulseLayout({ children }: { children: React.ReactNode }) {
   const [stars, setStars] = useState<JSX.Element[]>([]);
@@ -36,11 +44,11 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
 
       if (!user) {
         setCurrentUsersProfile(null);
-        // router.push('/login'); // Consider redirecting if no user
+        // router.push('/login'); // Consider redirecting if no user, but avoid blocking layout
         return;
       }
 
-      // Avoid re-fetching if profile already loaded and matches current user
+      // Only fetch if no profile or if user ID has changed (e.g., after login/logout)
       if (currentUsersProfile && currentUsersProfile.id === user.id) {
         return;
       }
@@ -61,16 +69,19 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
     };
 
     if (router.isReady) { // Ensure router is ready before fetching, especially for user-dependent logic
-        fetchCurrentUsersProfile();
+      fetchCurrentUsersProfile();
     }
-  }, [router.isReady, currentUsersProfile]); // Added currentUsersProfile to dependency to prevent re-fetch if already loaded
+  }, [router.isReady, currentUsersProfile?.id]); // Depend on router.isReady and currentUsersProfile.id for efficient re-fetches
 
   // --- Existing Friends Fetch useEffect ---
   useEffect(() => {
     const fetchFriends = async () => {
       const { data: session } = await supabase.auth.getUser();
       const user = session?.user;
-      if (!user) return;
+      if (!user) {
+        setFriends([]);
+        return;
+      }
 
       const { data: friendLinks, error: friendLinksError } = await supabase
         .from('friends')
@@ -103,16 +114,21 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
     };
 
     fetchFriends();
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount to fetch initial friends
 
-
-  // --- NEW: Real-time updates for friends' profiles ---
+  // --- Real-time updates for friends' profiles ---
   useEffect(() => {
-    if (friends.length === 0) return;
-
+    // This effect should ideally re-run only if the *list of friend IDs* changes,
+    // not if the friend objects themselves change.
+    // To do this, we need to extract friend IDs from the `friends` state.
     const friendIds = friends.map(f => f.id);
-    if (friendIds.length === 0) return; // Ensure there are IDs to filter by
+    if (friendIds.length === 0) {
+      console.log('No friends to subscribe to for real-time updates.');
+      return;
+    }
+
     const filterString = `id=in.(${friendIds.join(',')})`;
+    console.log(`Subscribing to friend profile updates with filter: ${filterString}`);
 
     const channel = supabase
       .channel('friends_profiles_updates')
@@ -129,7 +145,7 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
           )
         );
       })
-      .subscribe((status, err) => { // Optional: Handle subscription status/errors
+      .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
           console.log('Subscribed to friends_profiles_updates channel');
         }
@@ -140,10 +156,9 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
 
     return () => {
       console.log('Unsubscribing from friends_profiles_updates channel.');
-      supabase.removeChannel(channel); // Use removeChannel for cleanup
+      supabase.removeChannel(channel);
     };
-  }, [friends]); // Re-subscribe if the `friends` array identity changes
-
+  }, [JSON.stringify(friends.map(f => f.id))]); // Re-subscribe only if friend IDs change
 
   // --- Existing Stars Animation useEffect ---
   useEffect(() => {
@@ -229,11 +244,11 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
                 onClick={() => handleFriendCardClick(friend.id)}
               >
                 <div
-                    className={`relative w-16 h-16 rounded-full overflow-hidden mx-auto mb-2 transition-shadow duration-200 ease-in-out`}
-                    style={{
-                        boxShadow: statusGlowStyles[(friend.online_status as keyof typeof statusGlowStyles) || 'offline'], // Friend cards still show status glow
-                        border: `2px solid ${friend.themeColor || '#12f7ff'}` // Friend cards still show theme color
-                    }}
+                  className={`relative w-16 h-16 rounded-full overflow-hidden mx-auto mb-2 transition-shadow duration-200 ease-in-out`}
+                  style={{
+                    boxShadow: statusGlowStyles[(friend.online_status as keyof typeof statusGlowStyles) || 'offline'], // Re-added status glow
+                    border: `2px solid ${friend.themeColor || '#12f7ff'}` // Re-added theme color border
+                  }}
                 >
                   <Image
                     src={friend.profileImage || '/default-avatar.png'}
@@ -269,7 +284,7 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
                 width={80}
                 height={80}
                 className="w-20 h-20 rounded-full border-2 object-cover mx-auto mb-3"
-                style={{ borderColor: currentUsersProfile.themeColor || '#12f7ff' }} // Right panel still shows theme color for now
+                style={{ borderColor: currentUsersProfile.themeColor || '#12f7ff' }} // Re-added theme color border
               />
               <p className="font-bold text-lg text-center">{currentUsersProfile.displayName || 'Your Name'}</p>
               <p className="text-sm text-[#aaa] mt-1 text-center">@{currentUsersProfile.username || 'your_username'}</p>
@@ -308,19 +323,11 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
         </div>
       </div>
 
-      {/* MyProfileCorner (now defined below) */}
+      {/* MyProfileCorner */}
       <MyProfileCorner />
     </div>
   );
 }
-
-// --- StatusGlowStyles (can be shared or defined per component) ---
-const statusGlowStyles = {
-  online: '0 0 0 2px #22C55E, 0 0 10px 5px rgba(34,197,94,0.7)',
-  away: '0 0 0 2px #F59E0B, 0 0 10px 5px rgba(245,158,11,0.7)',
-  dnd: '0 0 0 2px #EF4444, 0 0 10px 5px rgba(239,68,68,0.7)',
-  offline: '0 0 0 2px #6B7280, 0 0 8px 3px rgba(107,114,128,0.5)',
-};
 
 
 function MyProfileCorner() {
@@ -334,27 +341,30 @@ function MyProfileCorner() {
   const [currentOnlineStatus, setCurrentOnlineStatus] = useState<'online' | 'away' | 'dnd' | 'offline'>('offline');
 
 
-  // 1. Fetch User Profile
+  // 1. Fetch User Profile and setup Realtime Subscription for own profile
   useEffect(() => {
     let isMounted = true; // To prevent state updates on unmounted component
+    let channel: any = null;
 
-    const fetchMyProfile = async () => {
+    const setupProfileAndSubscription = async () => {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
 
       if (!isMounted) return;
 
       if (userError) {
         console.error('🔒 Auth error fetching user for MyProfileCorner:', userError.message);
+        setProfile(null);
         return;
       }
 
       if (!user) {
         console.warn('⚠️ No user found in session for MyProfileCorner');
         setProfile(null);
-        // router.push('/join'); // Removed automatic redirect to avoid issues if component is used in unauth pages
+        // Do NOT redirect here, as this component is part of the layout
         return;
       }
 
+      // Fetch initial profile data
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -364,9 +374,9 @@ function MyProfileCorner() {
       if (!isMounted) return;
 
       if (error || !data) {
-        console.warn('⚠️ No profile found for MyProfileCorner user:', error?.message);
+        console.warn('⚠️ No profile found for MyProfileCorner user, or error:', error?.message);
         setProfile(null);
-        // router.push('/join'); // Removed automatic redirect
+        // Do NOT redirect here
         return;
       }
 
@@ -374,32 +384,34 @@ function MyProfileCorner() {
       setCurrentBio(data.bio || '');
       setCurrentPublicStatus(data.public_status || '');
       setCurrentOnlineStatus(data.online_status || 'offline');
+
+      // Setup Realtime subscription after initial fetch
+      if (!channel) { // Only subscribe once
+        channel = supabase
+          .channel(`my_profile_changes:${user.id}`)
+          .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${user.id}`
+          }, payload => {
+            if (!isMounted) return;
+            console.log('Realtime my profile update received!', payload.new);
+            const newProfile = payload.new as Profile;
+            setProfile(newProfile);
+            setCurrentBio(newProfile.bio || '');
+            setCurrentPublicStatus(newProfile.public_status || '');
+            setCurrentOnlineStatus(newProfile.online_status || 'offline');
+          })
+          .subscribe((status, err) => {
+            if (status === 'SUBSCRIBED') console.log(`Subscribed to my_profile_changes:${user.id}`);
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.error(`Subscription error for my_profile_changes:${user.id}:`, err);
+          });
+      }
     };
 
-    if (router.isReady) { // Ensure router is ready
-        fetchMyProfile();
-    }
-
-    // Realtime subscription for current user's own profile changes
-    const profileId = profile?.id; // Get profile ID from state *after* it might have been set
-    let channel: any = null;
-
-    if (profileId) { // Only subscribe if profileId is available
-        channel = supabase
-            .channel(`my_profile_changes:${profileId}`)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${profileId}` }, payload => {
-                if (!isMounted) return;
-                console.log('Realtime my profile update received!', payload.new);
-                const newProfile = payload.new as Profile;
-                setProfile(newProfile);
-                setCurrentBio(newProfile.bio || '');
-                setCurrentPublicStatus(newProfile.public_status || '');
-                setCurrentOnlineStatus(newProfile.online_status || 'offline');
-            })
-            .subscribe((status, err) => {
-                if (status === 'SUBSCRIBED') console.log(`Subscribed to my_profile_changes:${profileId}`);
-                if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.error(`Subscription error for my_profile_changes:${profileId}:`, err);
-            });
+    if (router.isReady) { // Ensure router is ready before fetching
+      setupProfileAndSubscription();
     }
 
     return () => {
@@ -407,10 +419,10 @@ function MyProfileCorner() {
       if (channel) {
         console.log('Unsubscribing from my_profile_changes channel.');
         supabase.removeChannel(channel);
+        channel = null; // Clear the channel reference
       }
     };
-  }, [router.isReady, profile?.id]); // Re-run if router is ready or if profile.id changes (e.g., after initial fetch)
-
+  }, [router.isReady]); // Depend only on router.isReady to ensure it runs once when the app is ready
 
   // 2. Click outside to close settings
   useEffect(() => {
@@ -445,7 +457,7 @@ function MyProfileCorner() {
 
     const updates = {
       [field]: value,
-      updated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(), // Always update timestamp
     };
 
     const { error } = await supabase
@@ -456,7 +468,7 @@ function MyProfileCorner() {
     if (error) {
       console.error(`❌ Error updating ${field}:`, error.message);
       // Optional: Revert optimistic update or re-fetch if there's a critical error
-      // fetchMyProfile(); // Be cautious with re-fetching to avoid loops
+      // A realtime subscription will eventually correct this if the DB update failed
     } else {
       console.log(`✅ ${field} updated successfully.`);
     }
@@ -468,8 +480,6 @@ function MyProfileCorner() {
 
   const handleBioChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCurrentBio(e.target.value);
-    // Debounce is good, but for simplicity in this refactor, direct update on blur/enter is also an option
-    // For immediate feedback, we can update on change and then debounce the Supabase call
   };
 
   const handlePublicStatusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -485,7 +495,7 @@ function MyProfileCorner() {
     }
     debounceTimeoutRef.current = setTimeout(() => {
       handleUpdateProfile(field, value);
-    }, 700); // Increased debounce time slightly
+    }, 700); // Debounce time
   };
 
   const debouncedUpdateBio = (value: string) => debounceUpdate(value, 'bio');
@@ -494,17 +504,16 @@ function MyProfileCorner() {
 
   if (!profile) {
     // Render a placeholder or nothing if profile is not yet loaded
-    // This prevents errors if profile is null initially
     return (
-        <div className="fixed bottom-5 right-5 z-50">
-            <div className="bg-[#111] border border-[#333] text-white rounded-2xl shadow-xl p-3 flex items-center space-x-3 cursor-pointer hover:bg-[#1e1e1e]">
-                <div className="w-12 h-12 rounded-full bg-gray-700 animate-pulse flex-shrink-0"></div>
-                <div className="flex flex-col">
-                    <div className="h-4 bg-gray-700 rounded w-20 mb-1 animate-pulse"></div>
-                    <div className="h-3 bg-gray-700 rounded w-16 animate-pulse"></div>
-                </div>
-            </div>
+      <div className="fixed bottom-5 right-5 z-50">
+        <div className="bg-[#111] border border-[#333] text-white rounded-2xl shadow-xl p-3 flex items-center space-x-3 cursor-pointer hover:bg-[#1e1e1e]">
+          <div className="w-12 h-12 rounded-full bg-gray-700 animate-pulse flex-shrink-0"></div>
+          <div className="flex flex-col">
+            <div className="h-4 bg-gray-700 rounded w-20 mb-1 animate-pulse"></div>
+            <div className="h-3 bg-gray-700 rounded w-16 animate-pulse"></div>
+          </div>
         </div>
+      </div>
     );
   }
 
@@ -515,9 +524,13 @@ function MyProfileCorner() {
         className="bg-[#111] border border-[#333] text-white rounded-2xl shadow-xl p-3 flex items-center space-x-3 cursor-pointer hover:bg-[#1e1e1e] transition-all duration-200 backdrop-blur-md"
         onClick={() => setShowSettings(!showSettings)}
       >
-        {/* Profile Image - REMOVED themeColor border and online status glow */}
+        {/* Profile Image with themeColor border and online status glow */}
         <div
-          className={`w-12 h-12 rounded-full overflow-hidden flex-shrink-0 border-2 border-transparent`} // Using transparent border to maintain layout, or use border-[#444] for a subtle fixed border
+          className={`relative w-12 h-12 rounded-full overflow-hidden flex-shrink-0 transition-shadow duration-200 ease-in-out`}
+          style={{
+            boxShadow: statusGlowStyles[profile.online_status || 'offline'], // Re-added status glow
+            border: `2px solid ${profile.themeColor || '#12f7ff'}` // Re-added theme color border
+          }}
         >
           <Image
             src={profile.profileImage || '/default-avatar.png'}
@@ -532,7 +545,12 @@ function MyProfileCorner() {
         <div className="flex flex-col">
           <p className="text-sm font-bold">{profile.displayName || 'Me'}</p>
           <p className="text-xs text-[#aaa]">@{profile.username}</p>
-          {/* REMOVED public_status (quick bio) from here */}
+          {/* Public status is now visible here as well */}
+          {profile.public_status && (
+            <p className="text-xs italic text-[#9500FF] mt-1 truncate">
+              {profile.public_status}
+            </p>
+          )}
         </div>
       </div>
 
@@ -553,10 +571,14 @@ function MyProfileCorner() {
           `}</style>
           <h3 className="text-lg font-bold mb-3 text-center">Quick Settings</h3>
 
-          {/* Profile Mirror in Pop-out - REMOVED themeColor border and online status glow */}
+          {/* Profile Mirror in Pop-out with themeColor border and online status glow */}
           <div className="flex items-center space-x-3 mb-4 border-b border-[#222] pb-3">
-             <div
-                className={`w-14 h-14 rounded-full overflow-hidden flex-shrink-0 border-2 border-transparent`} // Consistent with the main card
+            <div
+              className={`relative w-14 h-14 rounded-full overflow-hidden flex-shrink-0 transition-shadow duration-200 ease-in-out`}
+              style={{
+                boxShadow: statusGlowStyles[profile.online_status || 'offline'], // Re-added status glow
+                border: `2px solid ${profile.themeColor || '#12f7ff'}` // Re-added theme color border
+              }}
             >
               <Image
                 src={profile.profileImage || '/default-avatar.png'}
@@ -578,12 +600,12 @@ function MyProfileCorner() {
           {/* Online Status Selector - REMAINS FUNCTIONAL */}
           <div className="mb-4">
             <label className="block text-sm font-semibold mb-2">Online Status</label>
-            <div className="flex justify-around space-x-1 sm:space-x-2"> {/* Adjusted space for smaller buttons */}
+            <div className="flex justify-around space-x-1 sm:space-x-2">
               {(['online', 'away', 'dnd', 'offline'] as const).map((status) => (
                 <button
                   key={status}
                   onClick={() => handleOnlineStatusChange(status)}
-                  title={status.charAt(0).toUpperCase() + status.slice(1)} // Tooltip for status
+                  title={status.charAt(0).toUpperCase() + status.slice(1)}
                   className={`flex-1 p-1.5 sm:p-2 rounded-lg text-xs font-semibold capitalize transition-all duration-200
                     ${currentOnlineStatus === status ? 'ring-2 ring-offset-1 ring-offset-[#111]' : 'opacity-70 hover:opacity-100'}
                     ${status === 'online' ? `bg-green-600 hover:bg-green-500 text-white ${currentOnlineStatus === status ? 'ring-green-400' : ''}` : ''}
@@ -592,7 +614,6 @@ function MyProfileCorner() {
                     ${status === 'offline' ? `bg-gray-600 hover:bg-gray-500 text-white ${currentOnlineStatus === status ? 'ring-gray-400' : ''}` : ''}
                   `}
                 >
-                  {/* Using icons or shorter text for smaller buttons could be an option too */}
                   {status}
                 </button>
               ))}
@@ -634,11 +655,11 @@ function MyProfileCorner() {
               onChange={handleBioChange}
               onBlur={() => debouncedUpdateBio(currentBio)}
               rows={3}
-              maxLength={150} // Added maxLength for bio as well
+              maxLength={150}
               placeholder="Tell us about yourself..."
               className="w-full p-2 text-sm bg-[#1e1e1e] border border-[#222] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#9500FF] resize-y"
             ></textarea>
-             <p className="text-right text-xs text-[#666] mt-1">{currentBio.length}/150</p>
+            <p className="text-right text-xs text-[#666] mt-1">{currentBio.length}/150</p>
           </div>
 
           {/* Full Profile Link */}
@@ -657,23 +678,25 @@ function MyProfileCorner() {
 }
 
 
-// --- NotificationBell Component (now internal to PulseLayout.tsx) ---
+// --- NotificationBell Component ---
 function NotificationBell() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showPanel, setShowPanel] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
-
+  const router = useRouter(); // Use useRouter here as well
 
   useEffect(() => {
     let isMounted = true;
+    let notificationChannel: any = null; // Declare channel here
+
     const fetchNotifications = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !isMounted) return;
 
       const { data, error } = await supabase
         .from('notifications')
-        .select('*, from_user:from_user_id (id, displayName, username, profileImage)') // Fetch more from_user details
+        .select('*, from_user:from_user_id (id, displayName, username, profileImage)')
         .eq('to_user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -690,23 +713,24 @@ function NotificationBell() {
 
     // Realtime subscription for new notifications
     const userId = supabase.auth.getSession()?.data.session?.user.id;
-    let notificationChannel: any = null;
     if (userId) {
-        notificationChannel = supabase
-            .channel(`notifications:${userId}`)
-            .on('postgres_changes', {
-                event: '*', // Listen to INSERT, UPDATE, DELETE
-                schema: 'public',
-                table: 'notifications',
-                filter: `to_user_id=eq.${userId}`
-            }, payload => {
-                console.log('Realtime notification event:', payload);
-                fetchNotifications(); // Re-fetch notifications on any change
-            })
-            .subscribe((status, err) => {
-                if (status === 'SUBSCRIBED') console.log(`Subscribed to notifications:${userId}`);
-                if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.error(`Subscription error for notifications:${userId}:`, err);
-            });
+      notificationChannel = supabase
+        .channel(`notifications:${userId}`)
+        .on('postgres_changes', {
+          event: '*', // Listen to INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'notifications',
+          filter: `to_user_id=eq.${userId}`
+        }, payload => {
+          console.log('Realtime notification event:', payload);
+          // Instead of re-fetching all, you could also optimistically update based on payload.new
+          // For simplicity and robustness, re-fetching is fine for notifications.
+          fetchNotifications();
+        })
+        .subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') console.log(`Subscribed to notifications:${userId}`);
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.error(`Subscription error for notifications:${userId}:`, err);
+        });
     }
 
     return () => {
@@ -714,19 +738,19 @@ function NotificationBell() {
       clearInterval(interval);
       if (notificationChannel) supabase.removeChannel(notificationChannel);
     };
-  }, []);
+  }, []); // Empty dependency array, runs once on mount
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-        if (panelRef.current && !panelRef.current.contains(event.target as Node) && !(event.target as HTMLElement).closest('button[title="Notifications"]')) {
-            setShowPanel(false);
-        }
+      if (panelRef.current && !panelRef.current.contains(event.target as Node) && !(event.target as HTMLElement).closest('button[title="Notifications"]')) {
+        setShowPanel(false);
+      }
     };
     if (showPanel) {
-        document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showPanel]);
 
@@ -742,27 +766,27 @@ function NotificationBell() {
   };
 
   const handleCardClick = async (note: any) => {
-    const fromId = note.from_user?.id ?? note.from_user_id;
+    const fromId = note.from_user?.id ?? note.from_user_id; // Prefer linked user ID if available
     await markAsRead(note.id); // Mark as read first
 
     // Navigate based on notification type
-    if (note.type === 'friend_request' || note.type === 'profile_view') { // Example types
-        setIsFadingOut(true);
-        setTimeout(() => {
-            router.push(`/profile/${fromId}`); // Use router.push for Next.js navigation
-            setShowPanel(false); // Close panel after navigation
-            setIsFadingOut(false);
-        }, 300);
-    } else if (note.type === 'new_message' && note.related_entity_id) { // Example for messages
-        setIsFadingOut(true);
-        setTimeout(() => {
-            router.push(`/chat/${note.related_entity_id}`); // Navigate to chat
-            setShowPanel(false);
-            setIsFadingOut(false);
-        }, 300);
-    } else {
-        // Default behavior or other types
+    if (note.type === 'friend_request' || note.type === 'profile_view') {
+      setIsFadingOut(true);
+      setTimeout(() => {
+        router.push(`/profile/${fromId}`);
         setShowPanel(false);
+        setIsFadingOut(false);
+      }, 300);
+    } else if (note.type === 'new_message' && note.related_entity_id) {
+      setIsFadingOut(true);
+      setTimeout(() => {
+        router.push(`/chat/${note.related_entity_id}`);
+        setShowPanel(false);
+        setIsFadingOut(false);
+      }, 300);
+    } else {
+      // Default behavior or other types, just close panel
+      setShowPanel(false);
     }
   };
 
@@ -781,6 +805,20 @@ function NotificationBell() {
         @keyframes popInNotif {
             0% { opacity: 0; transform: scale(0.95) translateY(-10px); }
             100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #222;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #777;
         }
       `}</style>
 
@@ -805,258 +843,258 @@ function NotificationBell() {
           }`}
         >
           <h3 className="text-lg font-bold mb-3 border-b border-[#222] pb-2">Notifications</h3>
-          <div className="space-y-2 max-h-80 overflow-y-auto pr-1"> {/* Added pr-1 for scrollbar space */}
-            {notifications.length === 0 && (
-              <p className="text-sm text-[#888] italic text-center py-4">
-                You have no new notifications.
-              </p>
-            )}
-            {notifications.map((note) => {
-              const name = note.from_user?.displayName || "Someone";
-              const profileImg = note.from_user?.profileImage || '/default-avatar.png';
-              return (
+          {notifications.length === 0 ? (
+            <p className="text-center text-[#888]">No notifications yet.</p>
+          ) : (
+            <div className="max-h-80 overflow-y-auto custom-scrollbar">
+              {notifications.map((note) => (
                 <div
                   key={note.id}
-                  className={`p-3 rounded-lg transition-all duration-150 cursor-pointer flex items-start space-x-3
-                    ${ note.is_read ? "bg-[#1a1a1a] hover:bg-[#202020]" : "bg-[#272727] hover:bg-[#2d2d2d] border border-[#444] hover:border-[#555]" }
-                  `}
+                  className={`flex items-start p-3 rounded-lg mb-2 cursor-pointer transition ${
+                    note.is_read ? 'bg-[#1a1a1a] text-[#aaa]' : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
+                  }`}
                   onClick={() => handleCardClick(note)}
                 >
-                  <Image src={profileImg} alt={name} width={36} height={36} className="w-9 h-9 rounded-full object-cover border border-[#444]" />
+                  <Image
+                    src={note.from_user?.profileImage || '/default-avatar.png'}
+                    alt="Sender"
+                    width={32}
+                    height={32}
+                    className="rounded-full mr-3 flex-shrink-0 object-cover"
+                  />
                   <div className="flex-1">
-                    <p className={`text-sm ${note.is_read ? 'text-[#aaa]' : 'text-white'}`}>
-                      <span className="font-semibold">{name}</span>{" "}
-                      {note.type === 'friend_request' ? 'sent you a friend request.' : note.message || 'has an update for you.'}
+                    <p className="text-sm font-semibold leading-tight">
+                      {note.from_user?.displayName || 'Someone'}{' '}
+                      <span className="font-normal text-[#bbb]">{note.message}</span>
                     </p>
-                    <p className="text-xs text-[#666] mt-0.5">
-                      {new Date(note.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(note.created_at).toLocaleDateString([], { month: 'short', day: 'numeric'})}
+                    <p className="text-xs text-[#888] mt-1">
+                      {new Date(note.created_at).toLocaleString()}
                     </p>
                   </div>
                   {!note.is_read && (
-                    <span className="w-2.5 h-2.5 bg-[#12f7ff] rounded-full flex-shrink-0 mt-1 self-center" title="Unread"></span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent card click from triggering
+                        markAsRead(note.id);
+                      }}
+                      className="ml-2 px-2 py-1 bg-[#9500FF] text-white text-xs rounded-full hover:bg-[#7a00d0] transition flex-shrink-0"
+                      title="Mark as Read"
+                    >
+                      ✔
+                    </button>
                   )}
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-// --- AddFriendsDropdown Component (now internal to PulseLayout.tsx) ---
+// --- AddFriendsDropdown component ---
 function AddFriendsDropdown() {
   const [showDropdown, setShowDropdown] = useState(false);
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Profile[]>([]); // Use Profile interface
-  const [adding, setAdding] = useState<string | null>(null); // Store ID of user being added
-  const [feedback, setFeedback] = useState<{type: 'success' | 'error', message: string, userId?: string} | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [friendIdentifier, setFriendIdentifier] = useState('');
+  const [searchResult, setSearchResult] = useState<Profile | null>(null);
+  const [message, setMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
-
-  useEffect(() => {
-    const fetchUsers = async () => {
-      const search = query.trim().toLowerCase();
-      if (search === '') {
-        setResults([]);
-        return;
-      }
-
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) {
-          setResults([]);
-          return;
-      }
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, username, displayName, profileImage') // Select only necessary fields
-        .or(`username.ilike.%${search}%,displayName.ilike.%${search}%`)
-        .not('id', 'eq', currentUser.id) // Exclude current user from results
-        .limit(10); // Limit results
-
-      if (error) {
-        console.error('❌ Supabase Error fetching users:', error.message);
-        setResults([]);
-      } else {
-        setResults(data as Profile[] || []);
-      }
-    };
-
-    const debounce = setTimeout(fetchUsers, 300);
-    return () => clearTimeout(debounce);
-  }, [query]);
-
+  // Click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) && !(event.target as HTMLElement).closest('button > svg')) { // Check for svg if button has icon
-            setShowDropdown(false);
-        }
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) && !(event.target as HTMLElement).closest('button[title="Add Friends"]')) {
+        setShowDropdown(false);
+        setSearchResult(null); // Clear search result when closing
+        setFriendIdentifier('');
+        setMessage('');
+      }
     };
     if (showDropdown) {
-        document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showDropdown]);
 
-  const handleAddFriend = async (toUser: Profile) => {
-    setAdding(toUser.id);
-    setFeedback(null);
-
-    const { data: { user: fromUser }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !fromUser) {
-      setFeedback({type: 'error', message: 'You must be logged in.', userId: toUser.id});
-      setAdding(null);
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchResult(null);
+    setMessage('');
+    if (!friendIdentifier.trim()) {
+      setMessage('Please enter a username or ID.');
       return;
     }
 
-    if (fromUser.id === toUser.id) {
-      setFeedback({type: 'error', message: "You can't add yourself!", userId: toUser.id});
-      setAdding(null);
+    const { data: user } = await supabase.auth.getUser();
+    if (!user) {
+      setMessage('You must be logged in to search for friends.');
       return;
     }
 
-    // Check if a request already exists or if they are already friends
-    const { data: existingRequest, error: checkError } = await supabase
-        .from('friend_requests')
-        .select('id, status')
-        .or(`(from_user_id.eq.${fromUser.id},to_user_id.eq.${toUser.id}),(from_user_id.eq.${toUser.id},to_user_id.eq.${fromUser.id})`)
-        .single();
-
-    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
-        console.error('Error checking existing request:', checkError);
-        setFeedback({ type: 'error', message: 'Error checking request.', userId: toUser.id });
-        setAdding(null);
-        return;
-    }
-
-    if (existingRequest) {
-        if (existingRequest.status === 'pending') {
-            setFeedback({ type: 'info', message: 'Request already pending.', userId: toUser.id } as any);
-        } else if (existingRequest.status === 'accepted') {
-            setFeedback({ type: 'info', message: 'Already friends.', userId: toUser.id } as any);
-        } else if (existingRequest.status === 'declined' || existingRequest.status === 'blocked') {
-            setFeedback({ type: 'error', message: 'Cannot send request.', userId: toUser.id });
-        }
-        setAdding(null);
-        return;
-    }
-
-
-    const { error: friendError } = await supabase
-      .from('friend_requests')
-      .insert([{ from_user_id: fromUser.id, to_user_id: toUser.id, status: 'pending' }]);
-
-    if (friendError) {
-      console.error('❌ Add friend error:', friendError.message);
-      setFeedback({type: 'error', message: 'Failed to send request.', userId: toUser.id});
-      setAdding(null);
+    // Prevent searching for self
+    if (friendIdentifier.toLowerCase() === user.user_metadata.user_name?.toLowerCase() || friendIdentifier === user.id) {
+      setMessage('You cannot add yourself as a friend.');
       return;
     }
 
-    // Notification for the recipient
-    const { data: fromUserProfile } = await supabase.from('profiles').select('displayName').eq('id', fromUser.id).single();
-    const displayName = fromUserProfile?.displayName || 'Someone';
+    // Search by username or ID
+    const { data: profiles, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .or(`username.eq.${friendIdentifier},id.eq.${friendIdentifier}`);
 
-    const { error: notifyError } = await supabase.from('notifications').insert([
-      {
-        to_user_id: toUser.id,
-        from_user_id: fromUser.id,
-        message: `${displayName} sent you a friend request!`,
-        type: 'friend_request',
-        is_read: false,
-        // related_entity_id: fromUser.id // Could link back to sender's profile
+    if (error) {
+      console.error("Error searching for friend:", error.message);
+      setMessage('Error searching for user.');
+      return;
+    }
+
+    if (profiles && profiles.length > 0) {
+      const foundProfile = profiles[0] as Profile;
+      if (foundProfile.id === user.id) {
+         setMessage('You cannot add yourself as a friend.'); // Double-check for self
+      } else {
+         setSearchResult(foundProfile);
       }
-    ]);
-
-    if (notifyError) {
-      console.error('⚠️ Notification failed for friend request:', notifyError.message);
+    } else {
+      setMessage('User not found.');
     }
-
-    setAdding(null);
-    setFeedback({type: 'success', message: 'Request Sent!', userId: toUser.id});
-    setTimeout(() => setFeedback(null), 3000); // Clear feedback after 3s
   };
 
-  const handleViewProfile = (userId: string) => {
-    router.push(`/profile/${userId}`); // Use Next.js router
-    setShowDropdown(false); // Close dropdown on navigation
+  const handleSendFriendRequest = async () => {
+    if (!searchResult || !searchResult.id) {
+      setMessage('No user selected for friend request.');
+      return;
+    }
+
+    const { data: currentUser } = await supabase.auth.getUser();
+    if (!currentUser) {
+      setMessage('You must be logged in to send friend requests.');
+      return;
+    }
+
+    setIsSending(true);
+    setMessage('');
+
+    try {
+      // Check if a request already exists or they are already friends
+      const { data: existingFriendship, error: friendshipError } = await supabase
+        .from('friends')
+        .select('*')
+        .or(`(user_id.eq.${currentUser.id},friend_id.eq.${searchResult.id}),(user_id.eq.${searchResult.id},friend_id.eq.${currentUser.id})`);
+
+      if (friendshipError) throw friendshipError;
+
+      if (existingFriendship && existingFriendship.length > 0) {
+        setMessage('You are already friends or a request is pending.');
+        setIsSending(false);
+        return;
+      }
+
+      // Check if a notification already exists (e.g., pending friend request)
+      const { data: existingNotification, error: notificationError } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('from_user_id', currentUser.id)
+        .eq('to_user_id', searchResult.id)
+        .eq('type', 'friend_request')
+        .eq('is_read', false); // Consider only unread requests
+
+      if (notificationError) throw notificationError;
+
+      if (existingNotification && existingNotification.length > 0) {
+        setMessage('A friend request has already been sent to this user.');
+        setIsSending(false);
+        return;
+      }
+
+
+      // Send friend request (insert into notifications table)
+      const { error: insertError } = await supabase
+        .from('notifications')
+        .insert({
+          from_user_id: currentUser.id,
+          to_user_id: searchResult.id,
+          type: 'friend_request',
+          message: 'sent you a friend request!',
+          is_read: false,
+          related_entity_id: null, // No related entity for friend request initially
+        });
+
+      if (insertError) throw insertError;
+
+      setMessage('Friend request sent!');
+      setSearchResult(null); // Clear search result after sending
+      setFriendIdentifier('');
+      setTimeout(() => setShowDropdown(false), 1500); // Close after a short delay
+    } catch (error: any) {
+      console.error("Error sending friend request:", error.message);
+      setMessage(`Failed to send request: ${error.message}`);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
-    <div className="relative flex-grow">
+    <div className="relative">
       <button
-        onClick={() => { setShowDropdown(!showDropdown); if (!showDropdown) setQuery(''); setResults([]); setFeedback(null); }}
-        className="w-full bg-[#12f7ff] text-[#111] font-bold px-4 py-2 rounded-xl hover:bg-[#0fd0d0] transition shadow-lg text-sm flex items-center justify-center space-x-2"
-        title="Add or find friends"
+        className="text-3xl relative hover:scale-110 transition focus:outline-none"
+        onClick={() => setShowDropdown(!showDropdown)}
+        title="Add Friends"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-        </svg>
-        <span>Add Friends</span>
+        ➕
       </button>
 
       {showDropdown && (
-        <div ref={dropdownRef} className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-[#111] border border-[#333] rounded-xl p-4 shadow-xl backdrop-blur-sm z-50 w-80 animate-pop-in-notif">
-          <input
-            type="text"
-            placeholder="Search by username or display name..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full px-3 py-2 mb-3 bg-[#1e1e1e] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#9500FF] text-sm"
-            autoFocus
-          />
+        <div
+          ref={dropdownRef}
+          className="absolute right-0 mt-2 w-72 bg-[#111] border border-[#333] text-white rounded-xl p-4 shadow-xl z-50 backdrop-blur-md animate-pop-in-notif"
+        >
+          <h3 className="text-lg font-bold mb-3 border-b border-[#222] pb-2 text-center">Add Friend</h3>
+          <form onSubmit={handleSearch} className="mb-3">
+            <input
+              type="text"
+              placeholder="Username or User ID"
+              value={friendIdentifier}
+              onChange={(e) => setFriendIdentifier(e.target.value)}
+              className="w-full p-2 text-sm bg-[#1e1e1e] border border-[#222] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#9500FF] mb-2"
+            />
+            <button
+              type="submit"
+              className="w-full px-4 py-2 bg-[#fe019a] text-white font-bold text-sm rounded-xl hover:bg-[#d0017e] transition shadow-md"
+            >
+              Search User
+            </button>
+          </form>
 
-          <div className="space-y-2 max-h-60 overflow-y-auto pr-1"> {/* Added pr-1 for scrollbar */}
-            {results.map((user) => (
-              <div key={user.id} className="flex items-center bg-[#1a1a1a] p-2.5 rounded-xl hover:bg-[#222] transition">
-                <Image
-                  src={user.profileImage || '/default-avatar.png'}
-                  alt={user.displayName || user.username}
-                  width={36}
-                  height={36}
-                  className="w-9 h-9 rounded-full mr-3 object-cover border border-[#444]"
-                />
-                <div className="flex-1 min-w-0"> {/* min-w-0 for truncation */}
-                  <p className="text-white font-semibold text-sm truncate">{user.displayName}</p>
-                  <p className="text-xs text-[#aaa] truncate">@{user.username}</p>
-                </div>
-                {feedback && feedback.userId === user.id ? (
-                    <span className={`ml-2 text-xs px-2 py-1 rounded-md ${feedback.type === 'success' ? 'text-green-300' : feedback.type === 'error' ? 'text-red-300' : 'text-blue-300'}`}>
-                        {feedback.message}
-                    </span>
-                ) : (
-                <>
-                    <button
-                        className="ml-2 px-2.5 py-1 bg-[#12f7ff] text-[#111] rounded-lg text-xs font-bold hover:bg-[#0fd0d0] transition-transform hover:scale-105 disabled:opacity-50"
-                        disabled={adding === user.id}
-                        onClick={() => handleAddFriend(user)}
-                    >
-                        {adding === user.id ? '...' : 'Add'}
-                    </button>
-                    <button
-                        className="ml-1.5 px-2.5 py-1 bg-[#9500FF] text-white text-xs rounded-lg font-bold hover:bg-[#7a00cc] transition-transform hover:scale-105"
-                        onClick={() => handleViewProfile(user.id)}
-                        title={`View ${user.displayName}'s profile`}
-                    >
-                        View
-                    </button>
-                </>
-                )}
+          {message && <p className="text-center text-sm mb-3">{message}</p>}
+
+          {searchResult && (
+            <div className="bg-[#1a1a1a] p-3 rounded-lg flex items-center space-x-3 mb-3">
+              <Image
+                src={searchResult.profileImage || '/default-avatar.png'}
+                alt={searchResult.displayName || 'User'}
+                width={40}
+                height={40}
+                className="rounded-full object-cover"
+              />
+              <div className="flex-1">
+                <p className="font-bold text-sm">{searchResult.displayName || 'Unknown'}</p>
+                <p className="text-xs text-[#aaa]">@{searchResult.username}</p>
               </div>
-            ))}
-
-            {results.length === 0 && query && (
-              <p className="text-sm text-[#888] italic text-center py-3">No users found matching "{query}".</p>
-            )}
-             {results.length === 0 && !query && (
-              <p className="text-sm text-[#888] italic text-center py-3">Start typing to find users.</p>
-            )}
-          </div>
+              <button
+                onClick={handleSendFriendRequest}
+                disabled={isSending}
+                className="px-3 py-1 bg-[#12f7ff] text-black font-bold text-xs rounded-xl hover:bg-[#0fd0e0] transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSending ? 'Sending...' : 'Add Friend'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
