@@ -1,12 +1,71 @@
+// pulse.tsx
 import { useEffect, useState } from 'react';
 import { JSX } from 'react/jsx-runtime';
 import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/router';
+import Image from 'next/image';
+
+// Define a Profile interface for better type safety
+interface Profile {
+  id: string;
+  username: string;
+  displayName: string;
+  profileImage: string;
+  themeColor?: string; // Assuming you have this field
+  // Add other profile fields as needed
+}
 
 export default function PulseLayout({ children }: { children: React.ReactNode }) {
   const [stars, setStars] = useState<JSX.Element[]>([]);
-
   const [friends, setFriends] = useState<any[]>([]);
+  const [currentUsersProfile, setCurrentUsersProfile] = useState<Profile | null>(null);
+  const router = useRouter();
 
+  // --- Fetch Current User's Profile for Right Panel ---
+  useEffect(() => {
+    const fetchCurrentUsersProfile = async () => {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError) {
+        console.error('🔒 Auth error fetching current user:', authError.message);
+        setCurrentUsersProfile(null);
+        return;
+      }
+
+      if (!user) {
+        setCurrentUsersProfile(null);
+        // If no user is logged in, you might want to redirect
+        // router.push('/login');
+        return;
+      }
+
+      // Check if user already exists in the profile state
+      if (currentUsersProfile && currentUsersProfile.id === user.id) {
+        return; // Avoid refetching if already loaded for the same user
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        console.warn('⚠️ No profile found for current user, or error:', profileError?.message);
+        setCurrentUsersProfile(null);
+        // Redirect to onboarding if profile doesn't exist for a logged-in user
+        // router.push('/onboarding');
+        return;
+      }
+      setCurrentUsersProfile(profile);
+    };
+
+    fetchCurrentUsersProfile();
+    // Depend on router.isReady to ensure client-side hydration is complete
+    // and prevent unnecessary fetches before router is fully initialized.
+  }, [router.isReady]); // Added router.isReady to dependency array
+
+  // --- Existing Friends Fetch useEffect ---
   useEffect(() => {
     const fetchFriends = async () => {
       const { data: session } = await supabase.auth.getUser();
@@ -31,7 +90,7 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
     fetchFriends();
   }, []);
 
-
+  // --- Existing Stars Animation useEffect ---
   useEffect(() => {
     const colors = ['#12f7ff', '#fe019a', '#9500FF'];
     const newStars = Array.from({ length: 70 }).map((_, i) => {
@@ -63,104 +122,136 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
     setStars(newStars);
   }, []);
 
-return (
-  <div className="relative min-h-screen bg-black overflow-hidden font-sans text-white">
-    <style jsx global>{`
-      @keyframes twinkle {
-        0% {
-          opacity: 0.3;
-          transform: scale(0.8);
+  // Function to handle friend card click and navigate to chat
+  const handleFriendCardClick = (friendId: string) => {
+    router.push(`/chat/${friendId}`);
+  };
+
+  return (
+    <div className="relative min-h-screen bg-black overflow-hidden font-sans text-white">
+      <style jsx global>{`
+        @keyframes twinkle {
+          0% {
+            opacity: 0.3;
+            transform: scale(0.8);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1.2);
+          }
         }
-        100% {
-          opacity: 1;
-          transform: scale(1.2);
+        .twinkle {
+          animation: twinkle infinite alternate ease-in-out;
         }
-      }
-      .twinkle {
-        animation: twinkle infinite alternate ease-in-out;
-      }
-    `}</style>
+      `}</style>
 
-    <div className="absolute inset-0 z-0">{stars}</div>
+      <div className="absolute inset-0 z-0">{stars}</div>
 
-    <div className="relative z-10 max-w-[1440px] mx-auto pt-4 flex min-h-screen">
-      {/* Left Panel – Nodes */}
-      <div className="w-[220px] bg-[#111] border-r border-[#333] p-4 space-y-4 overflow-y-auto">
-        <h3 className="text-lg font-bold mb-3">Nodes</h3>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
-            <img src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" />
-            <span className="text-sm font-bold">CultOfCas</span>
-          </div>
-          <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
-            <img src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" />
-            <span className="text-sm font-bold">Fortnite</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Center Panel – Friends */}
-      <div className="flex-1 p-6 overflow-y-auto">
-      <div className="absolute top-4 right-[300px] flex space-x-3 z-50">
-  <AddFriendsDropdown />
-  <NotificationBell />
-</div>
-
-        <h2 className="text-xl font-bold mb-4">Friends</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {friends.map((friend, index) => (
-            <div
-              key={friend.id || index}
-              className="bg-[#1e1e1e] p-4 rounded-2xl shadow-lg hover:bg-[#272727] transition cursor-pointer"
-              onClick={() => window.location.href = `/profile/${friend.id}`}
-            >
-              <img
-                src={friend.profileImage || '/default-avatar.png'}
-                alt={friend.displayName || 'Friend'}
-                className="w-16 h-16 rounded-full border-2 border-[#12f7ff] object-cover mx-auto mb-2"
-              />
-              <div className="text-center">
-                <p className="font-bold">{friend.displayName || 'Unknown'}</p>
-                <p className="text-sm text-[#aaa]">@{friend.username}</p>
-                <p className="text-xs italic text-[#555] mt-1">💫 Friend</p>
-              </div>
+      <div className="relative z-10 max-w-[1440px] mx-auto pt-4 flex min-h-screen">
+        {/* Left Panel – Nodes */}
+        <div className="w-[220px] bg-[#111] border-r border-[#333] p-4 space-y-4 overflow-y-auto">
+          <h3 className="text-lg font-bold mb-3">Nodes</h3>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
+              <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
+              <span className="text-sm font-bold">CultOfCas</span>
             </div>
-          ))}
+            <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
+              <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
+              <span className="text-sm font-bold">Fortnite</span>
+            </div>
+          </div>
         </div>
-        {children}
-      </div>
 
-      {/* Right Panel – Profile / Music */}
-      <div className="w-[260px] bg-[#111] border-l border-[#333] p-4 sticky top-0 h-screen">
-        <div className="text-center">
-        <img src="/default-avatar.png" className="w-16 h-16 rounded-full border-2 border-[#12f7ff] mx-auto mb-2" />
-
-          <p className="font-bold">Cas ✿</p>
-          <p className="text-sm text-[#aaa]">@cas</p>
+        {/* Center Panel – Friends */}
+        <div className="flex-1 p-6 overflow-y-auto">
+          {/* Ensure AddFriendsDropdown and NotificationBell are NOT here */}
+          <h2 className="text-xl font-bold mb-4">Friends</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {friends.map((friend, index) => (
+              <div
+                key={friend.id || index}
+                className="bg-[#1e1e1e] p-4 rounded-2xl shadow-lg hover:bg-[#272727] transition cursor-pointer"
+                onClick={() => handleFriendCardClick(friend.id)}
+              >
+                <Image
+                  src={friend.profileImage || '/default-avatar.png'}
+                  alt={friend.displayName || 'Friend'}
+                  width={64}
+                  height={64}
+                  className="w-16 h-16 rounded-full border-2 border-[#12f7ff] object-cover mx-auto mb-2"
+                />
+                <div className="text-center">
+                  <p className="font-bold">{friend.displayName || 'Unknown'}</p>
+                  <p className="text-sm text-[#aaa]">@{friend.username}</p>
+                  <p className="text-xs italic text-[#555] mt-1">💫 Friend</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {children}
         </div>
-        <div className="mt-6">
-          <h4 className="text-sm font-bold mb-2">Now Playing</h4>
-          <div className="bg-[#1a1a1a] p-3 rounded-xl text-sm text-[#ccc]">
-            🎵 No song playing<br />
-            🟢 Online
+
+        {/* Right Panel – Current User Profile / Add Friends / Notifications / Music */}
+        <div className="w-[260px] bg-[#111] border-l border-[#333] p-4 sticky top-0 h-screen flex flex-col items-center">
+          {currentUsersProfile ? (
+            <>
+              {/* Profile image with dynamic border color */}
+              <Image
+                src={currentUsersProfile.profileImage || '/default-avatar.png'}
+                alt={currentUsersProfile.displayName || 'Your Profile'}
+                width={80}
+                height={80}
+                className="w-20 h-20 rounded-full border-2 object-cover mx-auto mb-3"
+                style={{ borderColor: currentUsersProfile.themeColor || '#12f7ff' }}
+              />
+              <p className="font-bold text-lg text-center">{currentUsersProfile.displayName || 'Your Name'}</p>
+              <p className="text-sm text-[#aaa] mt-1 text-center">@{currentUsersProfile.username || 'your_username'}</p>
+              <a
+                href="/profile"
+                className="mt-4 px-4 py-2 bg-[#fe019a] text-white font-bold text-sm rounded-xl hover:bg-[#d0017e] transition shadow-md"
+              >
+                View/Edit Profile
+              </a>
+            </>
+          ) : (
+            <div className="text-center text-[#888] my-4">
+              <p>Loading profile...</p>
+              {/* Optional: Add a login/signup link if no user */}
+              {/* <a href="/login" className="text-[#12f7ff] mt-2 block">Login</a> */}
+            </div>
+          )}
+
+          {/* Add Friends and Notification Bell moved here */}
+          <div className="mt-6 w-full flex justify-center items-center space-x-2">
+            <AddFriendsDropdown />
+            <NotificationBell />
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-[#333] w-full text-center">
+            <h4 className="text-sm font-bold mb-2">Now Playing</h4>
+            <div className="bg-[#1a1a1a] p-3 rounded-xl text-sm text-[#ccc]">
+              🎵 No song playing<br />
+              🟢 Online
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <MyProfileCorner />
-  </div>
-);
+      {/* MyProfileCorner remains for the bottom-right, if you still need it there */}
+      <MyProfileCorner />
+    </div>
+  );
 }
 
-
+// --- NotificationBell Component (unchanged from last successful version, but ensure absolute positioning works within parent) ---
 function NotificationBell() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showPanel, setShowPanel] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchNotifications = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -175,12 +266,15 @@ function NotificationBell() {
       setNotifications(data || []);
     };
 
-    const interval = setInterval(fetch, 1000);
+    // Using real-time for notifications is better for immediate updates
+    // For now, keeping your provided setInterval for this full file dump.
+    const interval = setInterval(fetchNotifications, 5000); // Polling every 5 seconds
     return () => clearInterval(interval);
   }, []);
 
   const markAsRead = async (id: string) => {
-    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    if (error) console.error("Error marking as read:", error.message);
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
     );
@@ -196,7 +290,7 @@ function NotificationBell() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative"> {/* Keep relative here for the dropdown to position correctly */}
       <style jsx>{`
         .fade-out {
           animation: fadeOut 0.3s ease forwards;
@@ -253,7 +347,7 @@ function NotificationBell() {
                 >
                   <p className="text-sm italic">
                     <span className="font-semibold text-white italic">{name}</span>{" "}
-                    sent you a friend request!
+                    {note.type === 'friend_request' ? 'sent you a friend request!' : note.message}
                   </p>
                   <p className="text-xs text-[#666] mt-1">
                     {new Date(note.created_at).toLocaleString()}
@@ -268,6 +362,7 @@ function NotificationBell() {
   );
 }
 
+// --- AddFriendsDropdown Component (minor adjustments for better positioning) ---
 function AddFriendsDropdown() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [query, setQuery] = useState('');
@@ -326,23 +421,23 @@ function AddFriendsDropdown() {
     }
 
     // INSERT notification
-const { data: profileData } = await supabase
-  .from('profiles')
-  .select('displayName')
-  .eq('id', user.id)
-  .single();
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('displayName')
+    .eq('id', user.id)
+    .single();
 
-const displayName = profileData?.displayName || 'Someone';
+  const displayName = profileData?.displayName || 'Someone';
 
-const { error: notifyError } = await supabase.from('notifications').insert([
-  {
-    to_user_id: toUserId,
-    from_user_id: user.id,
-    message: `${displayName} sent you a friend request!`,
-    type: 'friend_request',
-    is_read: false
-  }
-]);
+  const { error: notifyError } = await supabase.from('notifications').insert([
+    {
+      to_user_id: toUserId,
+      from_user_id: user.id,
+      message: `${displayName} sent you a friend request!`,
+      type: 'friend_request',
+      is_read: false
+    }
+  ]);
 
     if (notifyError) {
       console.error('⚠️ Notification failed:', notifyError.message);
@@ -357,16 +452,17 @@ const { error: notifyError } = await supabase.from('notifications').insert([
   };
 
   return (
-    <div className="relative">
+    <div className="relative flex-grow"> {/* Added flex-grow so it takes up available space */}
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="bg-[#12f7ff] text-[#111] font-bold px-4 py-2 rounded-xl hover:bg-[#0fd0d0] transition shadow-lg text-sm"
+        className="w-full bg-[#12f7ff] text-[#111] font-bold px-4 py-2 rounded-xl hover:bg-[#0fd0d0] transition shadow-lg text-sm"
       >
         ➕ Add Friends
       </button>
 
       {showDropdown && (
-        <div className="absolute top-12 right-0 bg-[#111] border border-[#333] rounded-xl p-4 shadow-xl backdrop-blur-sm z-50 w-80">
+        // Adjusted dropdown positioning to appear correctly within the right panel
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 bg-[#111] border border-[#333] rounded-xl p-4 shadow-xl backdrop-blur-sm z-50 w-80">
           <input
             type="text"
             placeholder="Search username…"
@@ -378,9 +474,11 @@ const { error: notifyError } = await supabase.from('notifications').insert([
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {results.map((user, index) => (
               <div key={index} className="flex items-center bg-[#1a1a1a] p-3 rounded-xl hover:bg-[#222] transition">
-                <img
+                <Image
                   src={user.profileImage || '/default-avatar.png'}
                   alt="Profile"
+                  width={40}
+                  height={40}
                   className="w-10 h-10 rounded-full mr-3 object-cover border-2 border-[#9500FF] shadow"
                 />
                 <div className="flex-1">
@@ -413,6 +511,7 @@ const { error: notifyError } = await supabase.from('notifications').insert([
   );
 }
 
+// --- MyProfileCorner Component (unchanged) ---
 function MyProfileCorner() {
   const [profile, setProfile] = useState<any>(null);
 
@@ -438,11 +537,11 @@ function MyProfileCorner() {
         .eq('id', user.id)
         .single();
 
-     if (error || !data) {
-  console.warn('⚠️ No profile found, redirecting...');
-  window.location.href = '/join';
-  return;
-}
+      if (error || !data) {
+        console.warn('⚠️ No profile found, redirecting...');
+        window.location.href = '/join';
+        return;
+      }
 
       setProfile(data);
     };
@@ -454,9 +553,11 @@ function MyProfileCorner() {
 
   return (
     <div className="fixed bottom-5 right-5 z-50 bg-[#111] border border-[#333] text-white rounded-2xl shadow-xl p-4 flex items-center space-x-3 max-w-sm backdrop-blur-md">
-      <img
+      <Image
         src={profile.profileImage || '/default-avatar.png'}
         alt="Me"
+        width={48}
+        height={48}
         className="w-12 h-12 rounded-full object-cover border-2"
         style={{ borderColor: profile.themeColor || '#12f7ff' }}
       />
