@@ -7,6 +7,8 @@ import Image from 'next/image';
 
 // Define a Profile interface for better type safety
 interface Profile {
+  musicStatus: ReactNode;
+  gameStatus: ReactNode;
   id: string;
   username: string;
   displayName: string;
@@ -309,7 +311,24 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
           <div className="mt-6 pt-6 border-t border-[#333] w-full text-center">
             <h4 className="text-sm font-bold mb-2">Now Playing</h4>
             <div className="bg-[#1a1a1a] p-3 rounded-xl text-sm text-[#ccc]">
-              🎵 No song playing<br />
+              <div className="mt-6">
+  <h4 className="text-sm font-bold mb-2">Now Playing</h4>
+  <div className="bg-[#1a1a1a] p-3 rounded-xl text-sm text-[#ccc] space-y-1">
+
+ {/* Music Status */}
+{currentUsersProfile?.musicStatus && (
+  <p>🎵 {currentUsersProfile.musicStatus}</p>
+)}
+
+{/* Game Status */}
+{currentUsersProfile?.gameStatus && (
+  <p>🎮 Playing {currentUsersProfile.gameStatus}</p>
+)}
+
+ 
+  </div>
+</div>
+
               {/* Display current user's online status from right panel profile if available */}
               {currentUsersProfile?.online_status ? (
                 <span className={`capitalize ${
