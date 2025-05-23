@@ -321,15 +321,7 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
   ) : null}
 
   {currentUsersProfile?.online_status ? (
-    <span className={`capitalize ${
-      currentUsersProfile.online_status === 'online'
-        ? 'text-green-400'
-        : currentUsersProfile.online_status === 'dnd'
-        ? 'text-red-400'
-        : currentUsersProfile.online_status === 'away'
-        ? 'text-yellow-400'
-        : 'text-gray-400'
-    }`}>
+    <span className="capitalize">
       {currentUsersProfile.online_status === 'online'
         ? '🍏 Online'
         : currentUsersProfile.online_status === 'dnd'
