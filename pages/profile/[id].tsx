@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '@/lib/supabaseClient';
-import PulseLayout from '../pulse'; // use '../pulse' if pulse.tsx is in /pages
+import PulseLayout from '../pulse';
 
 export default function UserProfile() {
   const router = useRouter();
@@ -57,11 +57,18 @@ export default function UserProfile() {
   const handleAccept = async () => {
     if (!currentUser || !id) return;
 
+    // 1. Mark the request as accepted
     await supabase
       .from('friend_requests')
       .update({ status: 'accepted' })
       .eq('from_user_id', id)
       .eq('to_user_id', currentUser.id);
+
+    // 2. Insert friendship in both directions
+    await supabase.from('friends').insert([
+      { user_id: currentUser.id, friend_id: id },
+      { user_id: id, friend_id: currentUser.id },
+    ]);
 
     setFriendRequestStatus('accepted');
   };
