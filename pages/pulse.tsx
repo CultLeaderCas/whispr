@@ -917,11 +917,12 @@ function AddFriendsDropdown() {
   // Click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) && !(event.target as HTMLElement).closest('button[title="Add Friends"]')) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        !(event.target as HTMLElement).closest('button[title="Add Friends"]')
+      ) {
         setShowDropdown(false);
-        setSearchResult(null); // Clear search result when closing
-        setFriendIdentifier('');
-        setMessage('');
       }
     };
     if (showDropdown) {
@@ -932,53 +933,55 @@ function AddFriendsDropdown() {
     };
   }, [showDropdown]);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearchResult(null);
-    setMessage('');
-    if (!friendIdentifier.trim()) {
-      setMessage('Please enter a username or ID.');
-      return;
-    }
+const handleSearch = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setSearchResult(null);
+  setMessage('');
+  
+  const identifier = friendIdentifier.trim();
+  if (!identifier) {
+    setMessage('Please enter a username or ID.');
+    return;
+  }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setMessage('You must be logged in to search for friends.');
-      return;
-    }
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    setMessage('You must be logged in to search.');
+    return;
+  }
 
-    // Prevent searching for self
-    if (
-      friendIdentifier.toLowerCase() === (user.user_metadata?.user_name?.toLowerCase?.() ?? '') ||
-      friendIdentifier === user.id
-    ) {
-      setMessage('You cannot add yourself as a friend.');
-      return;
-    }
+  // Prevent searching for self
+  if (identifier === user.id || identifier.toLowerCase() === user.user_metadata?.username?.toLowerCase()) {
+    setMessage('You cannot add yourself, silly goose.');
+    return;
+  }
 
-    // Search by username or ID
-    const { data: profiles, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .or(`username.eq.${friendIdentifier},id.eq.${friendIdentifier}`);
+  let profileData = null;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-    if (error) {
-      console.error("Error searching for friend:", error.message);
-      setMessage('Error searching for user.');
-      return;
-    }
-
-    if (profiles && profiles.length > 0) {
-      const foundProfile = profiles[0] as Profile;
-      if (foundProfile.id === user.id) {
-         setMessage('You cannot add yourself as a friend.'); // Double-check for self
-      } else {
-         setSearchResult(foundProfile);
-      }
+  try {
+    if (uuidRegex.test(identifier)) {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', identifier).single();
+      if (error) throw error;
+      profileData = data;
     } else {
-      setMessage('User not found.');
+      const { data, error } = await supabase.from('profiles').select('*').eq('username', identifier).single();
+      if (error) throw error;
+      profileData = data;
     }
-  };
+
+    if (!profileData) {
+      setMessage('User not found.');
+      return;
+    }
+
+    setSearchResult(profileData);
+  } catch (error: any) {
+    console.error("Search error:", error.message);
+    setMessage('Error searching for user.');
+  }
+};
+
 
   const handleSendFriendRequest = async () => {
     if (!searchResult || !searchResult.id) {
