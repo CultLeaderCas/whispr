@@ -210,7 +210,7 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
                     // Use a separate glow style for friends if you want, or just re-use the main one
                     // Adjust glow properties if needed for this larger size
                     style={{
-                        boxShadow: statusGlowStyles[friend.online_status || 'offline'],
+                        boxShadow: statusGlowStyles[(friend.online_status as keyof typeof statusGlowStyles) || 'offline'],
                         border: `2px solid ${friend.themeColor || '#12f7ff'}`
                     }}
                 >
