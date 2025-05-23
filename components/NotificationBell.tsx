@@ -1,62 +1,141 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+interface Notification {
+  id: string;
+  from_user_id: string;
+  to_user_id: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  type: string; // e.g., 'friend_request', 'message', 'alert' etc.
+  // These are populated by the select query's join
+  from_user?: {
+    id: string;
+    displayName: string;
+    username: string;
+    profileImage: string;
+  };
+}
+
 export default function NotificationBell() {
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showPanel, setShowPanel] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
+  // State to hold the current user's ID
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+  // Function to fetch notifications (used for initial load and real-time updates)
+  const fetchNotifications = useCallback(async (userId: string) => {
+    if (!userId) {
+      setNotifications([]); // Clear notifications if user is not available
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("notifications")
+      .select(`*, from_user:from_user_id (id, displayName, username, profileImage)`)
+      .eq("to_user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("❌ Notification fetch error:", error.message);
+      return;
+    }
+
+    setNotifications(data || []);
+  }, []); // No dependencies other than it's a stable function
+
+  // --- Effect to get current user and set up Realtime Subscription ---
   useEffect(() => {
-    const fetchNotifications = async () => {
-      const { data: session, error: authError } = await supabase.auth.getUser();
-      const user = session?.user;
+    let channel: any = null; // Declare channel here to be accessible in cleanup
+
+    const setupNotifications = async () => {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        console.error("❌ Auth error or no user:", authError?.message);
+        console.error("❌ Auth error or no user for notifications:", authError?.message);
+        setCurrentUserId(null);
+        setNotifications([]); // Clear notifications if no user
         return;
       }
 
-      const { data, error } = await supabase
-        .from("notifications")
-        .select(`*, from_user:from_user_id (id, displayName, username, profileImage)`)
-        .eq("to_user_id", user.id)
-        .order("created_at", { ascending: false });
+      setCurrentUserId(user.id); // Set the current user ID
+      fetchNotifications(user.id); // Fetch initial notifications
 
-      if (error) {
-        console.error("❌ Notification fetch error:", error.message);
-        return;
-      }
-
-      setNotifications(data || []);
+      // Subscribe to changes for the current user's notifications
+      channel = supabase
+        .channel(`notifications_channel:${user.id}`) // Unique channel name per user
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // Listen for INSERT, UPDATE, DELETE
+            schema: 'public',
+            table: 'notifications',
+            filter: `to_user_id=eq.${user.id}` // Only get changes relevant to this user
+          },
+          (payload) => {
+            console.log("Realtime notification change detected:", payload);
+            // Re-fetch all notifications to ensure consistency and correct order/filtering
+            fetchNotifications(user.id);
+          }
+        )
+        .subscribe();
     };
 
-    const interval = setInterval(fetchNotifications, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    setupNotifications();
+
+    // Cleanup subscription on component unmount or user logout
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [fetchNotifications]); // Depend on fetchNotifications to re-run if it changes (due to useCallback)
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const markAsRead = async (id: string) => {
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    if (!currentUserId) {
+        console.error("Cannot mark as read: User not authenticated.");
+        return;
+    }
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", id)
+      .eq("to_user_id", currentUserId); // Ensure only updating current user's notification
+
+    if (error) {
+      console.error("Error marking notification as read:", error.message);
+      return;
+    }
+
+    // Update local state immediately for responsiveness
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
     );
   };
 
-  const getFromUserId = (note: any) =>
+  const getFromUserId = (note: Notification) =>
     note.from_user?.id ?? note.from_user_id;
 
-  const getDisplayName = (note: any) =>
+  const getDisplayName = (note: Notification) =>
     note.from_user?.displayName ?? "Someone";
 
-  const handleCardClick = async (note: any) => {
+  const handleCardClick = async (note: Notification) => {
     const fromId = getFromUserId(note);
-    await markAsRead(note.id);
-    setIsFadingOut(true);
+    await markAsRead(note.id); // Mark as read when clicked
 
+    setIsFadingOut(true); // Start fade-out animation
+
+    // Delay navigation and panel hiding to allow animation to play
     setTimeout(() => {
-window.location.href = `/profile/${fromId}`;
-    }, 300); // Wait for animation
+      setShowPanel(false); // Hide the panel
+      setIsFadingOut(false); // Reset fade state for next time
+      // Navigate to the profile page
+      window.location.href = `/profile/${fromId}`;
+    }, 300); // Wait for animation duration
   };
 
   return (
@@ -74,6 +153,22 @@ window.location.href = `/profile/${fromId}`;
             opacity: 0;
             transform: scale(0.98);
           }
+        }
+        /* Custom Scrollbar Styles */
+        .custom-scroll::-webkit-scrollbar {
+          width: 8px; /* width of the scrollbar */
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+          background: #272727; /* color of the tracking area */
+          border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+          background-color: #555; /* color of the scroll thumb */
+          border-radius: 4px; /* roundness of the scroll thumb */
+          border: 2px solid #272727; /* creates padding around scroll thumb */
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+          background-color: #777; /* color of the scroll thumb on hover */
         }
       `}</style>
 
@@ -122,7 +217,8 @@ window.location.href = `/profile/${fromId}`;
                     <span className="font-semibold text-white italic">
                       {name}
                     </span>{" "}
-                    sent you a friend request!
+                    {/* Display message based on type for better clarity */}
+                    {note.type === 'friend_request' ? 'sent you a friend request!' : note.message}
                   </p>
 
                   <p className="text-xs text-[#666] mt-1">
