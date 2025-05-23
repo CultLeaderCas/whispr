@@ -7,8 +7,6 @@ import Image from 'next/image';
 
 // Define a Profile interface for better type safety
 interface Profile {
-  musicStatus: ReactNode;
-  gameStatus: ReactNode;
   id: string;
   username: string;
   displayName: string;
@@ -310,25 +308,39 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
 
           <div className="mt-6 pt-6 border-t border-[#333] w-full text-center">
             <h4 className="text-sm font-bold mb-2">Now Playing</h4>
-            <div className="bg-[#1a1a1a] p-3 rounded-xl text-sm text-[#ccc]">
-              <div className="mt-6">
-  <h4 className="text-sm font-bold mb-2">Now Playing</h4>
-  <div className="bg-[#1a1a1a] p-3 rounded-xl text-sm text-[#ccc] space-y-1">
+<div className="bg-[#1a1a1a] p-3 rounded-xl text-sm text-[#ccc]">
+  {currentUsersProfile?.musicStatus ? (
+    <p>🎵 {currentUsersProfile.musicStatus}</p>
+  ) : null}
 
- {/* Music Status */}
-{currentUsersProfile?.musicStatus && (
-  <p>🎵 {currentUsersProfile.musicStatus}</p>
-)}
+  {currentUsersProfile?.gameStatus ? (
+    <p>🎮 Playing {currentUsersProfile.gameStatus}</p>
+  ) : null}
 
-{/* Game Status */}
-{currentUsersProfile?.gameStatus && (
-  <p>🎮 Playing {currentUsersProfile.gameStatus}</p>
-)}
-
- 
-  </div>
+  {currentUsersProfile?.online_status ? (
+    <span className={`capitalize ${
+      currentUsersProfile.online_status === 'online'
+        ? 'text-green-400'
+        : currentUsersProfile.online_status === 'dnd'
+        ? 'text-red-400'
+        : currentUsersProfile.online_status === 'away'
+        ? 'text-yellow-400'
+        : 'text-gray-400'
+    }`}>
+      {currentUsersProfile.online_status === 'online'
+        ? '🍏 Online'
+        : currentUsersProfile.online_status === 'dnd'
+        ? '🍒 DND'
+        : currentUsersProfile.online_status === 'away'
+        ? '🍌 Away'
+        : '🖤 Offline'}
+    </span>
+  ) : (
+    <span className="text-gray-400">🖤 Offline</span>
+  )}
 </div>
-
+            <div className="bg-[#1a1a1a] p-3 rounded-xl text-sm text-[#ccc]">
+              🎵 No song playing<br />
               {/* Display current user's online status from right panel profile if available */}
               {currentUsersProfile?.online_status ? (
                 <span className={`capitalize ${
