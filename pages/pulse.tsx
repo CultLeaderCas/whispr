@@ -712,26 +712,30 @@ function NotificationBell() {
     const interval = setInterval(fetchNotifications, 15000); // Fetch periodically
 
     // Realtime subscription for new notifications
-    const userId = supabase.auth.getSession()?.data.session?.user.id;
-    if (userId) {
-      notificationChannel = supabase
-        .channel(`notifications:${userId}`)
-        .on('postgres_changes', {
-          event: '*', // Listen to INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'notifications',
-          filter: `to_user_id=eq.${userId}`
-        }, payload => {
-          console.log('Realtime notification event:', payload);
-          // Instead of re-fetching all, you could also optimistically update based on payload.new
-          // For simplicity and robustness, re-fetching is fine for notifications.
-          fetchNotifications();
-        })
-        .subscribe((status, err) => {
-          if (status === 'SUBSCRIBED') console.log(`Subscribed to notifications:${userId}`);
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.error(`Subscription error for notifications:${userId}:`, err);
-        });
-    }
+    const setupNotificationSubscription = async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user.id;
+      if (userId) {
+        notificationChannel = supabase
+          .channel(`notifications:${userId}`)
+          .on('postgres_changes', {
+            event: '*', // Listen to INSERT, UPDATE, DELETE
+            schema: 'public',
+            table: 'notifications',
+            filter: `to_user_id=eq.${userId}`
+          }, payload => {
+            console.log('Realtime notification event:', payload);
+            // Instead of re-fetching all, you could also optimistically update based on payload.new
+            // For simplicity and robustness, re-fetching is fine for notifications.
+            fetchNotifications();
+          })
+          .subscribe((status, err) => {
+            if (status === 'SUBSCRIBED') console.log(`Subscribed to notifications:${userId}`);
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.error(`Subscription error for notifications:${userId}:`, err);
+          });
+      }
+    };
+    setupNotificationSubscription();
 
     return () => {
       isMounted = false;
@@ -929,14 +933,17 @@ function AddFriendsDropdown() {
       return;
     }
 
-    const { data: user } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setMessage('You must be logged in to search for friends.');
       return;
     }
 
     // Prevent searching for self
-    if (friendIdentifier.toLowerCase() === user.user_metadata.user_name?.toLowerCase() || friendIdentifier === user.id) {
+    if (
+      friendIdentifier.toLowerCase() === (user.user_metadata?.user_name?.toLowerCase?.() ?? '') ||
+      friendIdentifier === user.id
+    ) {
       setMessage('You cannot add yourself as a friend.');
       return;
     }
@@ -972,7 +979,7 @@ function AddFriendsDropdown() {
     }
 
     const { data: currentUser } = await supabase.auth.getUser();
-    if (!currentUser) {
+    if (!currentUser || !currentUser.user) {
       setMessage('You must be logged in to send friend requests.');
       return;
     }
@@ -985,7 +992,7 @@ function AddFriendsDropdown() {
       const { data: existingFriendship, error: friendshipError } = await supabase
         .from('friends')
         .select('*')
-        .or(`(user_id.eq.${currentUser.id},friend_id.eq.${searchResult.id}),(user_id.eq.${searchResult.id},friend_id.eq.${currentUser.id})`);
+        .or(`(user_id.eq.${currentUser.user.id},friend_id.eq.${searchResult.id}),(user_id.eq.${searchResult.id},friend_id.eq.${currentUser.user.id})`);
 
       if (friendshipError) throw friendshipError;
 
@@ -999,7 +1006,7 @@ function AddFriendsDropdown() {
       const { data: existingNotification, error: notificationError } = await supabase
         .from('notifications')
         .select('*')
-        .eq('from_user_id', currentUser.id)
+        .eq('from_user_id', currentUser.user.id)
         .eq('to_user_id', searchResult.id)
         .eq('type', 'friend_request')
         .eq('is_read', false); // Consider only unread requests
@@ -1017,7 +1024,7 @@ function AddFriendsDropdown() {
       const { error: insertError } = await supabase
         .from('notifications')
         .insert({
-          from_user_id: currentUser.id,
+          from_user_id: currentUser.user.id,
           to_user_id: searchResult.id,
           type: 'friend_request',
           message: 'sent you a friend request!',
