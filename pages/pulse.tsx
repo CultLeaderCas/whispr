@@ -6,16 +6,19 @@ import { useRouter } from 'next/router';
 import Image from 'next/image';
 
 // Define a Profile interface for better type safety
-interface Profile {
+type Profile = {
+  themeColor: string;
+  public_status: JSX.Element;
   id: string;
   username: string;
   displayName: string;
-  profileImage: string;
-  themeColor?: string; // Re-introduced for dynamic border color
-  online_status?: 'online' | 'away' | 'dnd' | 'offline'; // Used for glow and status text
   bio?: string;
-  public_status?: string;
-}
+  profileImage?: string;
+  online_status?: 'online' | 'away' | 'dnd' | 'offline';
+  musicStatus?: string;
+  gameStatus?: string;
+};
+
 
 // --- StatusGlowStyles (Re-introduced for dynamic glow effects) ---
 const statusGlowStyles = {
@@ -445,7 +448,9 @@ function MyProfileCorner() {
             const newProfile = payload.new as Profile;
             setProfile(newProfile);
             setCurrentBio(newProfile.bio || '');
-            setCurrentPublicStatus(newProfile.public_status || '');
+            setCurrentPublicStatus(
+              typeof newProfile.public_status === 'string' ? newProfile.public_status : ''
+            );
             setCurrentOnlineStatus(newProfile.online_status || 'offline');
           })
           .subscribe((status, err) => {
