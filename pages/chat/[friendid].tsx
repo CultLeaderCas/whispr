@@ -1,335 +1,498 @@
-// pages/chat/[friendId].tsx
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useRef, FormEvent, JSX } from 'react';
+import { supabase } from '@/lib/supabaseClient'; // Assuming this path is correct
 import { useRouter } from 'next/router';
-import { supabase } from '@/lib/supabaseClient';
-import Image from 'next/image'; // Assuming Next.js Image component for optimization
+import Image from 'next/image';
+import PulseLayout from '@/components/PulseLayout'; // Assuming PulseLayout is in a 'components' folder
+
+// Define interfaces for better type safety
+interface Profile {
+  id: string;
+  username: string;
+  displayName: string;
+  profileImage: string;
+  themeColor?: string;
+  online_status?: 'online' | 'away' | 'dnd' | 'offline';
+  bio?: string;
+  public_status?: string;
+  chat_bubble_color?: string; // New: User's chosen chat bubble color
+  default_chat_background?: string; // New: User's preferred chat background
+}
 
 interface Message {
   id: string;
+  chat_session_id: string;
   sender_id: string;
-  receiver_id: string;
+  recipient_id: string;
   content: string;
   created_at: string;
-  is_read: boolean;
-  sender?: {
-    id: string;
-    displayName: string;
-    profileImage: string;
-  };
-  receiver?: {
-    id: string;
-    displayName: string;
-    profileImage: string;
-  };
+  // Join properties for sender/recipient profiles if needed (e.g., profileImage, displayName)
+  sender_profile?: Pick<Profile, 'id' | 'displayName' | 'profileImage' | 'chat_bubble_color'>;
+  recipient_profile?: Pick<Profile, 'id' | 'displayName' | 'profileImage' | 'chat_bubble_color'>;
 }
 
-interface Profile {
-  id: string;
-  displayName: string;
-  username: string;
-  profileImage: string;
-  themeColor?: string; // Assuming you have this in your profile table
-}
+// --- SQL Schema Updates (Reminder: Add these to your Supabase SQL Editor if you haven't already) ---
+/*
+-- Add chat_bubble_color to profiles table
+ALTER TABLE profiles
+ADD COLUMN chat_bubble_color TEXT DEFAULT '#12f7ff'; -- Default vibrant blue for sender messages
 
-export default function ChatScreen() {
+-- Add default_chat_background to profiles table (for user's own chat view background)
+ALTER TABLE profiles
+ADD COLUMN default_chat_background TEXT DEFAULT 'linear-gradient(135deg, #2a003f 0%, #00102a 100%)'; -- Default dark gradient
+
+-- Create messages table (if it doesn't exist yet)
+CREATE TABLE messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  chat_session_id TEXT NOT NULL, -- Deterministic ID for the chat between two users
+  sender_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  sender_profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL, -- Added this line for explicit sender profile
+  recipient_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  recipient_profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL, -- Added this line for explicit recipient profile
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable Realtime for the 'messages' table
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+
+-- Optional: Add indexes for faster lookups
+CREATE INDEX messages_chat_session_idx ON messages (chat_session_id);
+CREATE INDEX messages_sender_idx ON messages (sender_id);
+CREATE INDEX messages_recipient_idx ON messages (recipient_id);
+
+-- RLS Policies for messages table
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can insert their own messages" ON messages
+FOR INSERT WITH CHECK (
+  (auth.uid() = sender_id)
+);
+
+CREATE POLICY "Users can view messages they are part of" ON messages
+FOR SELECT USING (
+  (auth.uid() = sender_id) OR (auth.uid() = recipient_id)
+);
+
+-- RLS for profiles table (ensure users can read other profiles for chat details)
+-- Example: Allow authenticated users to view all profiles (if not already set)
+CREATE POLICY "Authenticated users can view all profiles" ON profiles
+FOR SELECT USING (auth.role() = 'authenticated');
+*/
+// --- End SQL Schema Updates ---
+
+
+export default function ChatPage() {
   const router = useRouter();
-  const { friendId } = router.query; // Get friendId from URL
+  const { friendId } = router.query;
+
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [friendProfile, setFriendProfile] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessageContent, setNewMessageContent] = useState('');
+  const [newMessageContent, setNewMessageContent] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null); // Ref for auto-scrolling
+  const messagesEndRef = useRef<HTMLDivElement>(null); // For auto-scrolling
+  const currentChatBackground = currentUser?.default_chat_background || 'linear-gradient(135deg, #2a003f 0%, #00102a 100%)';
 
-  // --- Fetch Current User Profile ---
+
+  // Helper to generate a consistent chat session ID
+  const getDeterministicChatSessionId = (id1: string, id2: string): string => {
+    // Sort IDs to ensure consistency regardless of who is sender/recipient
+    return [id1, id2].sort().join('_');
+  };
+
+  // 1. Fetch User Profiles and Messages
   useEffect(() => {
-    const fetchCurrentUser = async () => {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        console.error("Auth error or no user:", authError?.message);
-        router.push('/login'); // Redirect to login if not authenticated
+    let isMounted = true;
+    let messageChannel: any = null;
+
+    const fetchChatData = async () => {
+      if (!router.isReady || !friendId || typeof friendId !== 'string') {
+        setIsLoading(true);
         return;
       }
-      const { data: profile, error: profileError } = await supabase
+
+      setIsLoading(true);
+
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      if (!isMounted) return;
+
+      if (authError || !authUser) {
+        console.error('🔒 Auth error or no user:', authError?.message);
+        router.push('/login'); // Redirect to login if no authenticated user
+        return;
+      }
+
+      // Fetch current user's full profile
+      const { data: userProfileData, error: userProfileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', authUser.id)
         .single();
-      if (profileError || !profile) {
-        console.error("Error fetching current user profile:", profileError?.message);
-        router.push('/onboarding'); // Redirect to onboarding if no profile
+
+      if (!isMounted) return;
+      if (userProfileError || !userProfileData) {
+        console.error('❌ Error fetching current user profile:', userProfileError?.message);
+        setIsLoading(false);
         return;
       }
-      setCurrentUser(profile);
-    };
-    fetchCurrentUser();
-  }, [router]);
+      setCurrentUser(userProfileData as Profile);
 
-  // --- Fetch Friend Profile ---
-  useEffect(() => {
-    const fetchFriendProfile = async () => {
-      if (!friendId) return; // Wait for friendId to be available
-
-      const { data, error } = await supabase
+      // Fetch friend's profile
+      const { data: friendProfileData, error: friendProfileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', friendId as string)
+        .eq('id', friendId)
         .single();
 
-      if (error || !data) {
-        console.error("Error fetching friend profile:", error?.message);
-        setFriendProfile(null);
-        // Optionally redirect to a 404 page or friends list if friend not found
+      if (!isMounted) return;
+      if (friendProfileError || !friendProfileData) {
+        console.error('❌ Error fetching friend profile:', friendProfileError?.message);
+        // Optionally redirect or show error if friend profile not found
+        setIsLoading(false);
         return;
       }
-      setFriendProfile(data);
+      setFriendProfile(friendProfileData as Profile);
+
+      const currentChatId = getDeterministicChatSessionId(authUser.id, friendId);
+      setChatSessionId(currentChatId); // Store the generated chatSessionId
+
+      // Fetch existing messages for this chat session
+      const { data: fetchedMessages, error: messagesError } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          sender_profile:sender_id(id, displayName, profileImage, chat_bubble_color),
+          recipient_profile:recipient_id(id, displayName, profileImage, chat_bubble_color)
+        `)
+        .eq('chat_session_id', currentChatId)
+        .order('created_at', { ascending: true });
+
+      if (!isMounted) return;
+      if (messagesError) {
+        console.error('❌ Error fetching messages:', messagesError.message);
+      } else {
+        setMessages(fetchedMessages as Message[] || []);
+      }
+      setIsLoading(false);
+
+      // 2. Real-time Messages Subscription
+      if (!messageChannel) {
+        messageChannel = supabase
+          .channel(`chat_messages:${currentChatId}`)
+          .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `chat_session_id=eq.${currentChatId}`
+          }, async (payload) => {
+            if (!isMounted) return;
+            console.log('Realtime message received:', payload.new);
+
+            // Fetch sender/recipient profiles for the new message to get bubble color
+            const { data: senderProfile, error: senderError } = await supabase
+              .from('profiles')
+              .select('id, displayName, profileImage, chat_bubble_color')
+              .eq('id', payload.new.sender_id)
+              .single();
+            const { data: recipientProfile, error: recipientError } = await supabase
+              .from('profiles')
+              .select('id, displayName, profileImage, chat_bubble_color')
+              .eq('id', payload.new.recipient_id)
+              .single();
+
+            if (senderError) console.error('Error fetching sender profile for realtime message:', senderError.message);
+            if (recipientError) console.error('Error fetching recipient profile for realtime message:', recipientError.message);
+
+            const newMessageWithProfiles = {
+              ...payload.new as Message,
+              sender_profile: senderProfile || null,
+              recipient_profile: recipientProfile || null,
+            };
+
+            setMessages((prevMessages) => [...prevMessages, newMessageWithProfiles]);
+          })
+          .subscribe((status, err) => {
+            if (status === 'SUBSCRIBED') console.log(`Subscribed to chat_messages:${currentChatId}`);
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.error(`Subscription error for chat_messages:${currentChatId}:`, err);
+          });
+      }
     };
-    fetchFriendProfile();
-  }, [friendId]);
+
+    fetchChatData();
+
+    return () => {
+      isMounted = false;
+      if (messageChannel) {
+        console.log(`Unsubscribing from chat_messages:${chatSessionId}`);
+        supabase.removeChannel(messageChannel);
+        messageChannel = null;
+      }
+    };
+  }, [router.isReady, friendId]); // Re-run if friendId changes or router becomes ready
 
 
-  // --- Fetch Messages & Realtime Subscription ---
-  const fetchMessages = useCallback(async () => {
-    if (!currentUser?.id || !friendProfile?.id) {
-      setMessages([]);
-      return;
+  // 3. Auto-scroll to bottom of messages
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
+  }, [messages]); // Scroll whenever messages update
+
+
+  // 4. Send Message Function
+  const handleSendMessage = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!newMessageContent.trim() || !currentUser || !friendProfile || !chatSessionId) return;
+
+    const messageToInsert = {
+      chat_session_id: chatSessionId,
+      sender_id: currentUser.id,
+      recipient_id: friendProfile.id,
+      content: newMessageContent.trim(),
+    };
+
+    // Optimistically add message
+    const optimisticMessage: Message = {
+      ...messageToInsert,
+      id: `optimistic-${Date.now()}`, // Temporary ID for optimistic update
+      created_at: new Date().toISOString(),
+      sender_profile: {
+        id: currentUser.id,
+        displayName: currentUser.displayName,
+        profileImage: currentUser.profileImage,
+        chat_bubble_color: currentUser.chat_bubble_color,
+      },
+      recipient_profile: {
+        id: friendProfile.id,
+        displayName: friendProfile.displayName,
+        profileImage: friendProfile.profileImage,
+        chat_bubble_color: friendProfile.chat_bubble_color,
+      },
+    };
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setNewMessageContent(''); // Clear input immediately
 
     const { data, error } = await supabase
       .from('messages')
+      .insert(messageToInsert)
       .select(`
-        *,
-        sender:sender_id (id, displayName, profileImage),
-        receiver:receiver_id (id, displayName, profileImage)
+          *,
+          sender_profile:sender_id(id, displayName, profileImage, chat_bubble_color),
+          recipient_profile:recipient_id(id, displayName, profileImage, chat_bubble_color)
       `)
-      .or(`(sender_id.eq.${currentUser.id},receiver_id.eq.${friendProfile.id}),(sender_id.eq.${friendProfile.id},receiver_id.eq.${currentUser.id})`)
-      .order('created_at', { ascending: true });
+      .single();
 
     if (error) {
-      console.error("Error fetching messages:", error.message);
-      return;
-    }
-    setMessages(data || []);
-    // Scroll to bottom after messages load
-    if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [currentUser?.id, friendProfile?.id]);
-
-  useEffect(() => {
-    if (!currentUser?.id || !friendProfile?.id) return;
-
-    fetchMessages(); // Initial fetch
-
-    const channel = supabase
-      .channel(`chat_room:${currentUser.id}-${friendProfile.id}`) // Unique channel for this chat
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT', // Only listen for new messages
-          schema: 'public',
-          table: 'messages',
-          // Filter to messages either sent by current user to friend, or by friend to current user
-          filter: `(sender_id.eq.${currentUser.id}.and.receiver_id.eq.${friendProfile.id}).or(sender_id.eq.${friendProfile.id}.and.receiver_id.eq.${currentUser.id})`
-        },
-        (payload) => {
-          console.log('New message received:', payload);
-          // Add the new message to state. Ensure it's correctly typed.
-          setMessages((prevMessages) => [...prevMessages, payload.new as Message]);
-          // Scroll to bottom when new message arrives
-          if (messagesEndRef.current) {
-              messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    };
-  }, [currentUser?.id, friendProfile?.id, fetchMessages]);
-
-  // --- Send Message Handler ---
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessageContent.trim() || !currentUser?.id || !friendProfile?.id) return;
-
-    const { error } = await supabase
-      .from('messages')
-      .insert({
-        sender_id: currentUser.id,
-        receiver_id: friendProfile.id,
-        content: newMessageContent.trim(),
-        is_read: false, // Messages are unread by default when sent
-      });
-
-    if (error) {
-      console.error("Error sending message:", error.message);
-      alert('Failed to send message.');
+      console.error('❌ Error sending message:', error.message);
+      // Revert optimistic update if there's an error, or just rely on realtime
+      setMessages((prev) => prev.filter(msg => msg.id !== optimisticMessage.id));
+      alert('Failed to send message. Please try again.'); // User feedback
     } else {
-      setNewMessageContent(''); // Clear input
+      console.log('✅ Message sent:', data);
+      // Realtime listener will handle adding the *actual* message, so we don't double-add the final one.
+      // If we remove the optimistic one immediately and rely solely on realtime, the UX might be slower.
+      // So the optimistic update stays, and the realtime update will effectively replace the optimistic one if it has the same content/sender_id/created_at (or you can manage IDs).
     }
   };
 
-  if (!currentUser || !friendProfile) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-black text-white">
-        Loading chat...
-      </div>
+      <PulseLayout>
+        <div className="flex-1 flex items-center justify-center min-h-[calc(100vh-80px)]">
+          <p className="text-white text-lg">Loading chat...</p>
+        </div>
+      </PulseLayout>
     );
   }
 
+  if (!currentUser || !friendProfile) {
+    return (
+      <PulseLayout>
+        <div className="flex-1 flex items-center justify-center min-h-[calc(100vh-80px)]">
+          <p className="text-red-400 text-lg">Error: Could not load chat data.</p>
+        </div>
+      </PulseLayout>
+    );
+  }
+
+  // Determine chat bubble colors
+  const myBubbleColor = currentUser.chat_bubble_color || '#12f7ff'; // Default for current user
+  const friendBubbleColor = friendProfile.chat_bubble_color || '#fe019a'; // Default for friend
+
   return (
-    <div className="flex h-screen bg-[#0a0a0a] text-white">
-      {/* Left Panel: Friend's Profile & Shared Nodes */}
-      <div className="w-80 bg-[#111] border-r border-[#333] p-6 flex flex-col">
-        <div className="text-center">
+    <div className="relative min-h-screen bg-black overflow-hidden font-sans text-white">
+      {/* PulseLayout provides the overall app structure and background stars. */}
+      {/* If you want the chat page to have its own distinct background/stars separate from PulseLayout,
+          you'd need to modify PulseLayout to allow a "chat-only" mode or move its background elements here. */}
+
+      <div className="relative z-10 max-w-[1440px] mx-auto pt-4 flex min-h-screen">
+        {/* Left Panel - Friend's Full Card */}
+        <div className="w-[280px] bg-[#111] border-r border-[#333] p-4 flex flex-col items-center overflow-y-auto">
           <Image
             src={friendProfile.profileImage || '/default-avatar.png'}
-            alt={friendProfile.displayName || 'Friend Profile'}
-            width={120}
-            height={120}
-            className="rounded-full object-cover mx-auto mb-4 border-4"
+            alt={friendProfile.displayName || 'Friend'}
+            width={96}
+            height={96}
+            className="w-24 h-24 rounded-full object-cover border-2"
             style={{ borderColor: friendProfile.themeColor || '#12f7ff' }}
           />
-          <h2 className="text-2xl font-bold">{friendProfile.displayName}</h2>
+          <p className="font-bold text-xl mt-2">{friendProfile.displayName || 'Friend'}</p>
           <p className="text-sm text-[#aaa]">@{friendProfile.username}</p>
-        </div>
+          {friendProfile.public_status && (
+            <p className="text-xs italic text-[#9500FF] mt-1 text-center">
+              {friendProfile.public_status}
+            </p>
+          )}
+          <a
+            href={`/profile/${friendProfile.id}`}
+            className="mt-4 px-4 py-2 bg-[#fe019a] text-white font-bold text-sm rounded-xl hover:bg-[#d0017e] transition shadow-md"
+          >
+            View Full Profile
+          </a>
 
-        <div className="mt-8 pt-6 border-t border-[#333]">
-          <h3 className="text-lg font-semibold mb-4">Shared Nodes</h3>
-          {/* Example Shared Nodes - you'd fetch these from your database */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
-              <Image src="/default-node.png" alt="Node" width={40} height={40} className="rounded-full border border-[#9500FF]" />
-              <span className="text-sm">CultOfCas</span>
+          <div className="mt-6 pt-6 border-t border-[#333] w-full text-center">
+            <h4 className="text-sm font-bold mb-3">Shared Nodes</h4>
+            <div className="flex justify-center space-x-3">
+              <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
+              <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#fe019a]" alt="Node Icon" width={40} height={40} />
+              <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#12f7ff]" alt="Node Icon" width={40} height={40} />
+              {/* More shared node placeholders if needed */}
             </div>
-            <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
-              <Image src="/default-node.png" alt="Node" width={40} height={40} className="rounded-full border border-[#9500FF]" />
-              <span className="text-sm">Fortnite Community</span>
-            </div>
+            <p className="text-xs text-[#888] mt-2">Discover common interests</p>
           </div>
         </div>
-      </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-gradient-to-br from-[#4d00a0] to-[#6a00c7]"> {/* Gradient background */}
-        <div className="flex-1 p-6 space-y-4 overflow-y-auto custom-scroll">
-          {messages.length === 0 && (
-            <div className="text-center text-[#ddd] text-lg mt-10">
-              Start a conversation with {friendProfile.displayName}!
-            </div>
-          )}
-          {messages.map((message) => {
-            const isSender = message.sender_id === currentUser.id;
-            const messageProfile = isSender ? currentUser : friendProfile;
-
-            return (
-              <div
-                key={message.id}
-                className={`flex items-start gap-3 ${isSender ? 'justify-end' : ''}`}
-              >
-                {!isSender && (
-                  <Image
-                    src={messageProfile?.profileImage || '/default-avatar.png'}
-                    alt="Profile"
-                    width={40}
-                    height={40}
-                    className="rounded-full object-cover border-2 border-[#12f7ff] flex-shrink-0"
-                  />
-                )}
-                <div
-                  className={`max-w-[70%] p-3 rounded-2xl ${
-                    isSender
-                      ? 'bg-[#12f7ff] text-[#111] rounded-br-none'
-                      : 'bg-[#1e1e1e] text-white rounded-bl-none'
-                  }`}
-                >
-                  <p className="text-sm">{message.content}</p>
-                  <p className="text-xs text-right mt-1 opacity-70">
-                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-                {isSender && (
-                  <Image
-                    src={messageProfile?.profileImage || '/default-avatar.png'}
-                    alt="Profile"
-                    width={40}
-                    height={40}
-                    className="rounded-full object-cover border-2 border-[#fe019a] flex-shrink-0"
-                  />
-                )}
+        {/* Main Chat Area */}
+        <div
+          className="flex-1 flex flex-col p-6 rounded-l-2xl shadow-inner relative overflow-hidden"
+          style={{ background: currentChatBackground }} // Dynamic chat background from currentUser's profile
+        >
+          {/* Chat Header */}
+          <div className="flex items-center justify-between pb-4 border-b border-[#333] mb-4">
+            <div className="flex items-center space-x-3">
+              <Image
+                src={friendProfile.profileImage || '/default-avatar.png'}
+                alt={friendProfile.displayName || 'Friend'}
+                width={48}
+                height={48}
+                className="w-12 h-12 rounded-full object-cover border-2"
+                style={{ borderColor: friendProfile.themeColor || '#12f7ff' }}
+              />
+              <div>
+                <h3 className="text-lg font-bold">{friendProfile.displayName || 'Friend'}</h3>
+                <p className="text-sm text-[#ccc]">
+                  @{friendProfile.username} -{' '}
+                  <span className={`capitalize ${friendProfile.online_status === 'online' ? 'text-green-400' : friendProfile.online_status === 'dnd' ? 'text-red-400' : friendProfile.online_status === 'away' ? 'text-yellow-400' : 'text-gray-400'}`}>
+                    {friendProfile.online_status || 'offline'}
+                  </span>
+                </p>
               </div>
-            );
-          })}
-          <div ref={messagesEndRef} /> {/* Element to scroll into view */}
-        </div>
+            </div>
+            {/* Chat action buttons (e.g., call, video, info) */}
+            <div className="flex space-x-3 text-2xl text-[#bbb]">
+              <button className="hover:text-white transition">📞</button>
+              <button className="hover:text-white transition">📹</button>
+              <button className="hover:text-white transition">ℹ️</button>
+            </div>
+          </div>
 
-        {/* Message Input Area */}
-        <form onSubmit={handleSendMessage} className="p-4 bg-[#111] border-t border-[#333] flex items-center gap-3">
-          <input
-            type="text"
-            value={newMessageContent}
-            onChange={(e) => setNewMessageContent(e.target.value)}
-            placeholder="Start Typing ..."
-            className="flex-1 px-5 py-3 bg-[#1e1e1e] text-white rounded-full focus:outline-none focus:ring-2 focus:ring-[#9500FF] placeholder:text-[#888]"
-          />
-          <button
-            type="submit"
-            className="p-3 bg-[#12f7ff] text-[#111] rounded-full hover:bg-[#0fd0d0] transition focus:outline-none focus:ring-2 focus:ring-[#9500FF]"
-            aria-label="Send message"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="currentColor"
+          {/* Messages Container */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+            {messages.map((message) => {
+              const isMyMessage = message.sender_id === currentUser.id;
+              // Use the profile from the message's sender_profile object if available,
+              // otherwise fallback to currentUser/friendProfile for immediate optimistic display
+              const senderForBubble = message.sender_profile || (isMyMessage ? currentUser : friendProfile);
+
+              // Use the chat_bubble_color from the sender's profile
+              const messageBubbleColor = senderForBubble.chat_bubble_color || (isMyMessage ? myBubbleColor : friendBubbleColor);
+
+              return (
+                <div
+                  key={message.id}
+                  className={`flex mb-4 ${isMyMessage ? 'justify-end' : 'justify-start'}`} // SENDER ON RIGHT, RECIPIENT ON LEFT
+                >
+                  {/* Friend's message (left aligned) includes their avatar */}
+                  {!isMyMessage && (
+                    <Image
+                      src={senderForBubble.profileImage || '/default-avatar.png'}
+                      alt={senderForBubble.displayName || 'User'}
+                      width={32}
+                      height={32}
+                      className="w-8 h-8 rounded-full object-cover mr-2 flex-shrink-0"
+                    />
+                  )}
+                  {/* Message Bubble */}
+                  <div
+                    className={`max-w-[70%] p-3 rounded-xl shadow-md break-words ${
+                      isMyMessage ? 'rounded-br-none text-white' : 'rounded-bl-none text-white'
+                    }`} // Rounded corners adjust based on sender
+                    style={{ backgroundColor: messageBubbleColor }} // Dynamic bubble color
+                  >
+                    <p>{message.content}</p>
+                    <p className="text-[10px] text-opacity-70 mt-1 text-right">
+                      {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  {/* My message (right aligned) includes my avatar */}
+                  {isMyMessage && (
+                    <Image
+                      src={senderForBubble.profileImage || '/default-avatar.png'}
+                      alt={senderForBubble.displayName || 'User'}
+                      width={32}
+                      height={32}
+                      className="w-8 h-8 rounded-full object-cover ml-2 flex-shrink-0"
+                    />
+                  )}
+                </div>
+              );
+            })}
+            <div ref={messagesEndRef} /> {/* Scroll target */}
+          </div>
+
+          {/* Message Input Area */}
+          <form onSubmit={handleSendMessage} className="mt-4 flex items-center space-x-3 bg-[#1e1e1e] border border-[#333] rounded-2xl p-2 shadow-lg">
+            <button type="button" className="text-xl text-[#9500FF] p-2 hover:text-[#7a00d0] transition" title="Add Attachment">
+              +
+            </button>
+            <input
+              type="text"
+              placeholder="Start Typing ..."
+              value={newMessageContent}
+              onChange={(e) => setNewMessageContent(e.target.value)}
+              className="flex-1 p-2 bg-transparent text-white placeholder-[#888] focus:outline-none text-sm"
+            />
+            <button type="button" className="text-xl text-[#9500FF] p-2 hover:text-[#7a00d0] transition" title="Add Emoji">
+              😊
+            </button>
+            <button
+              type="submit"
+              className="bg-[#12f7ff] text-black font-bold px-5 py-2 rounded-xl text-sm hover:bg-[#0fd0e0] transition shadow-md"
+              title="Send Message"
             >
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-            </svg>
-          </button>
-          {/* Optional: Add more buttons like image/attachment here */}
-          <button
-            type="button"
-            className="p-3 bg-[#9500FF] text-white rounded-full hover:bg-[#7a00cc] transition focus:outline-none focus:ring-2 focus:ring-[#fe019a]"
-            aria-label="Add attachment"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
-        </form>
+              Send
+            </button>
+          </form>
+        </div>
       </div>
 
-      {/* Custom Scrollbar Styles for the chat area */}
-      <style jsx global>{`
-        .custom-scroll::-webkit-scrollbar {
-          width: 8px; /* width of the scrollbar */
+      {/* Custom Scrollbar Styles */}
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
         }
-        .custom-scroll::-webkit-scrollbar-track {
-          background: #272727; /* color of the tracking area */
-          border-radius: 4px;
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(0,0,0,0.2);
+          border-radius: 10px;
         }
-        .custom-scroll::-webkit-scrollbar-thumb {
-          background-color: #555; /* color of the scroll thumb */
-          border-radius: 4px; /* roundness of the scroll thumb */
-          border: 2px solid #272727; /* creates padding around scroll thumb */
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.3);
+          border-radius: 10px;
         }
-        .custom-scroll::-webkit-scrollbar-thumb:hover {
-          background-color: #777; /* color of the scroll thumb on hover */
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255,255,255,0.5);
         }
       `}</style>
     </div>
