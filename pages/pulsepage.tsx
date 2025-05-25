@@ -25,7 +25,7 @@ const statusGlowStyles = {
   offline: '0 0 0 2px #6B7280, 0 0 8px 3px rgba(107,114,128,0.5)',
 };
 
-export default function PulsePage() {
+export default function PulseLayout({ children }: { children: React.ReactNode }) {
   const [stars, setStars] = useState<JSX.Element[]>([]);
   const [friends, setFriends] = useState<Profile[]>([]); // Use Profile interface
   const [currentUsersProfile, setCurrentUsersProfile] = useState<Profile | null>(null);
@@ -271,7 +271,7 @@ export default function PulsePage() {
               </div>
             ))}
           </div>
-          
+          {children}
         </div>
 
         {/* Right Panel – Current User Profile / Add Friends / Notifications / Music */}
