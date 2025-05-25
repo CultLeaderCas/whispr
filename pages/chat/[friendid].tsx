@@ -1,10 +1,10 @@
+// pages/chat/[friendId].tsx
 import { useEffect, useState, useRef, FormEvent, JSX } from 'react';
-import { supabase } from '@/lib/supabaseClient'; // Assuming this path is correct
+import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
-import PulseLayout from '@/components/PulseLayout'; // Assuming PulseLayout is in a 'components' folder
 
-// Define interfaces for better type safety
+// Define interfaces for better type safety (UNCHANGED)
 interface Profile {
   id: string;
   username: string;
@@ -14,8 +14,8 @@ interface Profile {
   online_status?: 'online' | 'away' | 'dnd' | 'offline';
   bio?: string;
   public_status?: string;
-  chat_bubble_color?: string; // New: User's chosen chat bubble color
-  default_chat_background?: string; // New: User's preferred chat background
+  chat_bubble_color?: string;
+  default_chat_background?: string;
 }
 
 interface Message {
@@ -25,60 +25,17 @@ interface Message {
   recipient_id: string;
   content: string;
   created_at: string;
-  // Join properties for sender/recipient profiles if needed (e.g., profileImage, displayName)
-  sender_profile?: Pick<Profile, 'id' | 'displayName' | 'profileImage' | 'chat_bubble_color'>;
-  recipient_profile?: Pick<Profile, 'id' | 'displayName' | 'profileImage' | 'chat_bubble_color'>;
+  sender_profile?: Pick<Profile, 'id' | 'displayName' | 'profileImage' | 'chat_bubble_color'> | null;
+  recipient_profile?: Pick<Profile, 'id' | 'displayName' | 'profileImage' | 'chat_bubble_color'> | null;
 }
 
-// --- SQL Schema Updates (Reminder: Add these to your Supabase SQL Editor if you haven't already) ---
-/*
--- Add chat_bubble_color to profiles table
-ALTER TABLE profiles
-ADD COLUMN chat_bubble_color TEXT DEFAULT '#12f7ff'; -- Default vibrant blue for sender messages
-
--- Add default_chat_background to profiles table (for user's own chat view background)
-ALTER TABLE profiles
-ADD COLUMN default_chat_background TEXT DEFAULT 'linear-gradient(135deg, #2a003f 0%, #00102a 100%)'; -- Default dark gradient
-
--- Create messages table (if it doesn't exist yet)
-CREATE TABLE messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  chat_session_id TEXT NOT NULL, -- Deterministic ID for the chat between two users
-  sender_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
-  sender_profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL, -- Added this line for explicit sender profile
-  recipient_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
-  recipient_profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL, -- Added this line for explicit recipient profile
-  content TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Enable Realtime for the 'messages' table
-ALTER PUBLICATION supabase_realtime ADD TABLE messages;
-
--- Optional: Add indexes for faster lookups
-CREATE INDEX messages_chat_session_idx ON messages (chat_session_id);
-CREATE INDEX messages_sender_idx ON messages (sender_id);
-CREATE INDEX messages_recipient_idx ON messages (recipient_id);
-
--- RLS Policies for messages table
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can insert their own messages" ON messages
-FOR INSERT WITH CHECK (
-  (auth.uid() = sender_id)
-);
-
-CREATE POLICY "Users can view messages they are part of" ON messages
-FOR SELECT USING (
-  (auth.uid() = sender_id) OR (auth.uid() = recipient_id)
-);
-
--- RLS for profiles table (ensure users can read other profiles for chat details)
--- Example: Allow authenticated users to view all profiles (if not already set)
-CREATE POLICY "Authenticated users can view all profiles" ON profiles
-FOR SELECT USING (auth.role() = 'authenticated');
-*/
-// --- End SQL Schema Updates ---
+// --- StatusGlowStyles (copied from pulse.tsx for consistency if needed for ChatPage) ---
+const statusGlowStyles = {
+  online: '0 0 0 2px #22C55E, 0 0 10px 5px rgba(34,197,94,0.7)',
+  away: '0 0 0 2px #F59E0B, 0 0 10px 5px rgba(245,158,11,0.7)',
+  dnd: '0 0 0 2px #EF4444, 0 0 10px 5px rgba(239,68,68,0.7)',
+  offline: '0 0 0 2px #6B7280, 0 0 8px 3px rgba(107,114,128,0.5)',
+};
 
 
 export default function ChatPage() {
@@ -92,17 +49,49 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [chatSessionId, setChatSessionId] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null); // For auto-scrolling
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentChatBackground = currentUser?.default_chat_background || 'linear-gradient(135deg, #2a003f 0%, #00102a 100%)';
 
+  // --- START: Copied from pages/pulse.tsx for background and stars ---
+  const [stars, setStars] = useState<JSX.Element[]>([]);
 
-  // Helper to generate a consistent chat session ID
+  useEffect(() => {
+    const colors = ['#12f7ff', '#fe019a', '#9500FF'];
+    const newStars = Array.from({ length: 70 }).map((_, i) => {
+      const size = Math.random() * 3 + 1;
+      const top = Math.random() * 100;
+      const left = Math.random() * 100;
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const duration = Math.random() * 4 + 2;
+
+      return (
+        <div
+          key={i}
+          className="twinkle"
+          style={{
+            position: 'absolute',
+            top: `${top}%`,
+            left: `${left}%`,
+            width: `${size}px`,
+            height: `${size}px`,
+            backgroundColor: color,
+            borderRadius: '50%',
+            opacity: 0.8,
+            animationDuration: `${duration}s`,
+            animationDelay: `${Math.random() * 5}s`
+          }}
+        />
+      );
+    });
+    setStars(newStars);
+  }, []);
+  // --- END: Copied from pages/pulse.tsx for background and stars ---
+
+
   const getDeterministicChatSessionId = (id1: string, id2: string): string => {
-    // Sort IDs to ensure consistency regardless of who is sender/recipient
     return [id1, id2].sort().join('_');
   };
 
-  // 1. Fetch User Profiles and Messages
   useEffect(() => {
     let isMounted = true;
     let messageChannel: any = null;
@@ -120,11 +109,10 @@ export default function ChatPage() {
 
       if (authError || !authUser) {
         console.error('🔒 Auth error or no user:', authError?.message);
-        router.push('/login'); // Redirect to login if no authenticated user
+        router.push('/login');
         return;
       }
 
-      // Fetch current user's full profile
       const { data: userProfileData, error: userProfileError } = await supabase
         .from('profiles')
         .select('*')
@@ -139,7 +127,6 @@ export default function ChatPage() {
       }
       setCurrentUser(userProfileData as Profile);
 
-      // Fetch friend's profile
       const { data: friendProfileData, error: friendProfileError } = await supabase
         .from('profiles')
         .select('*')
@@ -149,16 +136,14 @@ export default function ChatPage() {
       if (!isMounted) return;
       if (friendProfileError || !friendProfileData) {
         console.error('❌ Error fetching friend profile:', friendProfileError?.message);
-        // Optionally redirect or show error if friend profile not found
         setIsLoading(false);
         return;
       }
       setFriendProfile(friendProfileData as Profile);
 
       const currentChatId = getDeterministicChatSessionId(authUser.id, friendId);
-      setChatSessionId(currentChatId); // Store the generated chatSessionId
+      setChatSessionId(currentChatId);
 
-      // Fetch existing messages for this chat session
       const { data: fetchedMessages, error: messagesError } = await supabase
         .from('messages')
         .select(`
@@ -177,7 +162,6 @@ export default function ChatPage() {
       }
       setIsLoading(false);
 
-      // 2. Real-time Messages Subscription
       if (!messageChannel) {
         messageChannel = supabase
           .channel(`chat_messages:${currentChatId}`)
@@ -190,22 +174,27 @@ export default function ChatPage() {
             if (!isMounted) return;
             console.log('Realtime message received:', payload.new);
 
-            // Fetch sender/recipient profiles for the new message to get bubble color
-            const { data: senderProfile, error: senderError } = await supabase
+            const { data: senderProfile, error: senderProfileError } = await supabase
               .from('profiles')
               .select('id, displayName, profileImage, chat_bubble_color')
               .eq('id', payload.new.sender_id)
               .single();
-            const { data: recipientProfile, error: recipientError } = await supabase
+
+            if (senderProfileError) {
+              console.error('Error fetching sender profile for realtime message:', senderProfileError.message);
+            }
+
+            const { data: recipientProfile, error: recipientProfileError } = await supabase
               .from('profiles')
               .select('id, displayName, profileImage, chat_bubble_color')
               .eq('id', payload.new.recipient_id)
               .single();
 
-            if (senderError) console.error('Error fetching sender profile for realtime message:', senderError.message);
-            if (recipientError) console.error('Error fetching recipient profile for realtime message:', recipientError.message);
+            if (recipientProfileError) {
+              console.error('Error fetching recipient profile for realtime message:', recipientProfileError.message);
+            }
 
-            const newMessageWithProfiles = {
+            const newMessageWithProfiles: Message = {
               ...payload.new as Message,
               sender_profile: senderProfile || null,
               recipient_profile: recipientProfile || null,
@@ -230,18 +219,16 @@ export default function ChatPage() {
         messageChannel = null;
       }
     };
-  }, [router.isReady, friendId]); // Re-run if friendId changes or router becomes ready
+  }, [router.isReady, friendId]);
 
 
-  // 3. Auto-scroll to bottom of messages
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]); // Scroll whenever messages update
+  }, [messages]);
 
 
-  // 4. Send Message Function
   const handleSendMessage = async (e: FormEvent) => {
     e.preventDefault();
     if (!newMessageContent.trim() || !currentUser || !friendProfile || !chatSessionId) return;
@@ -253,10 +240,9 @@ export default function ChatPage() {
       content: newMessageContent.trim(),
     };
 
-    // Optimistically add message
     const optimisticMessage: Message = {
       ...messageToInsert,
-      id: `optimistic-${Date.now()}`, // Temporary ID for optimistic update
+      id: `optimistic-${Date.now()}`,
       created_at: new Date().toISOString(),
       sender_profile: {
         id: currentUser.id,
@@ -272,7 +258,7 @@ export default function ChatPage() {
       },
     };
     setMessages((prev) => [...prev, optimisticMessage]);
-    setNewMessageContent(''); // Clear input immediately
+    setNewMessageContent('');
 
     const { data, error } = await supabase
       .from('messages')
@@ -286,47 +272,74 @@ export default function ChatPage() {
 
     if (error) {
       console.error('❌ Error sending message:', error.message);
-      // Revert optimistic update if there's an error, or just rely on realtime
       setMessages((prev) => prev.filter(msg => msg.id !== optimisticMessage.id));
-      alert('Failed to send message. Please try again.'); // User feedback
+      alert('Failed to send message. Please try again.');
     } else {
       console.log('✅ Message sent:', data);
-      // Realtime listener will handle adding the *actual* message, so we don't double-add the final one.
-      // If we remove the optimistic one immediately and rely solely on realtime, the UX might be slower.
-      // So the optimistic update stays, and the realtime update will effectively replace the optimistic one if it has the same content/sender_id/created_at (or you can manage IDs).
     }
   };
 
   if (isLoading) {
     return (
-      <PulseLayout>
-        <div className="flex-1 flex items-center justify-center min-h-[calc(100vh-80px)]">
+      // Wrap loading state in the same layout div for consistency
+      <div className="relative min-h-screen bg-black overflow-hidden font-sans text-white">
+        {/* Copied stars background */}
+        <div className="absolute inset-0 z-0">{stars}</div>
+        <div className="relative z-10 flex-1 flex items-center justify-center min-h-[calc(100vh-80px)]">
           <p className="text-white text-lg">Loading chat...</p>
         </div>
-      </PulseLayout>
+        {/* Copied global CSS for twinkle animation */}
+        <style jsx global>{`
+          @keyframes twinkle {
+            0% { opacity: 0.3; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1.2); }
+          }
+          .twinkle { animation: twinkle infinite alternate ease-in-out; }
+        `}</style>
+      </div>
     );
   }
 
   if (!currentUser || !friendProfile) {
     return (
-      <PulseLayout>
-        <div className="flex-1 flex items-center justify-center min-h-[calc(100vh-80px)]">
+      // Wrap error state in the same layout div for consistency
+      <div className="relative min-h-screen bg-black overflow-hidden font-sans text-white">
+        {/* Copied stars background */}
+        <div className="absolute inset-0 z-0">{stars}</div>
+        <div className="relative z-10 flex-1 flex items-center justify-center min-h-[calc(100vh-80px)]">
           <p className="text-red-400 text-lg">Error: Could not load chat data.</p>
         </div>
-      </PulseLayout>
+        {/* Copied global CSS for twinkle animation */}
+        <style jsx global>{`
+          @keyframes twinkle {
+            0% { opacity: 0.3; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1.2); }
+          }
+          .twinkle { animation: twinkle infinite alternate ease-in-out; }
+        `}</style>
+      </div>
     );
   }
 
-  // Determine chat bubble colors
-  const myBubbleColor = currentUser.chat_bubble_color || '#12f7ff'; // Default for current user
-  const friendBubbleColor = friendProfile.chat_bubble_color || '#fe019a'; // Default for friend
+  const myBubbleColor = currentUser.chat_bubble_color || '#12f7ff';
+  const friendBubbleColor = friendProfile.chat_bubble_color || '#fe019a';
 
   return (
+    // This is the main wrapper div, styled exactly like your PulsePage's outer div
     <div className="relative min-h-screen bg-black overflow-hidden font-sans text-white">
-      {/* PulseLayout provides the overall app structure and background stars. */}
-      {/* If you want the chat page to have its own distinct background/stars separate from PulseLayout,
-          you'd need to modify PulseLayout to allow a "chat-only" mode or move its background elements here. */}
+      {/* Background stars from PulsePage */}
+      <div className="absolute inset-0 z-0">{stars}</div>
 
+      {/* Global CSS for the star animation */}
+      <style jsx global>{`
+        @keyframes twinkle {
+          0% { opacity: 0.3; transform: scale(0.8); }
+          100% { opacity: 1; transform: scale(1.2); }
+        }
+        .twinkle { animation: twinkle infinite alternate ease-in-out; }
+      `}</style>
+
+      {/* The actual chat page content, wrapped to be on top of the stars */}
       <div className="relative z-10 max-w-[1440px] mx-auto pt-4 flex min-h-screen">
         {/* Left Panel - Friend's Full Card */}
         <div className="w-[280px] bg-[#111] border-r border-[#333] p-4 flex flex-col items-center overflow-y-auto">
@@ -358,7 +371,6 @@ export default function ChatPage() {
               <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
               <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#fe019a]" alt="Node Icon" width={40} height={40} />
               <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#12f7ff]" alt="Node Icon" width={40} height={40} />
-              {/* More shared node placeholders if needed */}
             </div>
             <p className="text-xs text-[#888] mt-2">Discover common interests</p>
           </div>
@@ -367,7 +379,7 @@ export default function ChatPage() {
         {/* Main Chat Area */}
         <div
           className="flex-1 flex flex-col p-6 rounded-l-2xl shadow-inner relative overflow-hidden"
-          style={{ background: currentChatBackground }} // Dynamic chat background from currentUser's profile
+          style={{ background: currentChatBackground }}
         >
           {/* Chat Header */}
           <div className="flex items-center justify-between pb-4 border-b border-[#333] mb-4">
@@ -390,7 +402,6 @@ export default function ChatPage() {
                 </p>
               </div>
             </div>
-            {/* Chat action buttons (e.g., call, video, info) */}
             <div className="flex space-x-3 text-2xl text-[#bbb]">
               <button className="hover:text-white transition">📞</button>
               <button className="hover:text-white transition">📹</button>
@@ -402,45 +413,38 @@ export default function ChatPage() {
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
             {messages.map((message) => {
               const isMyMessage = message.sender_id === currentUser.id;
-              // Use the profile from the message's sender_profile object if available,
-              // otherwise fallback to currentUser/friendProfile for immediate optimistic display
               const senderForBubble = message.sender_profile || (isMyMessage ? currentUser : friendProfile);
-
-              // Use the chat_bubble_color from the sender's profile
-              const messageBubbleColor = senderForBubble.chat_bubble_color || (isMyMessage ? myBubbleColor : friendBubbleColor);
+              const messageBubbleColor = senderForBubble?.chat_bubble_color || (isMyMessage ? myBubbleColor : friendBubbleColor);
 
               return (
                 <div
                   key={message.id}
-                  className={`flex mb-4 ${isMyMessage ? 'justify-end' : 'justify-start'}`} // SENDER ON RIGHT, RECIPIENT ON LEFT
+                  className={`flex mb-4 ${isMyMessage ? 'justify-end' : 'justify-start'}`}
                 >
-                  {/* Friend's message (left aligned) includes their avatar */}
                   {!isMyMessage && (
                     <Image
-                      src={senderForBubble.profileImage || '/default-avatar.png'}
-                      alt={senderForBubble.displayName || 'User'}
+                      src={senderForBubble?.profileImage || '/default-avatar.png'}
+                      alt={senderForBubble?.displayName || 'User'}
                       width={32}
                       height={32}
                       className="w-8 h-8 rounded-full object-cover mr-2 flex-shrink-0"
                     />
                   )}
-                  {/* Message Bubble */}
                   <div
                     className={`max-w-[70%] p-3 rounded-xl shadow-md break-words ${
                       isMyMessage ? 'rounded-br-none text-white' : 'rounded-bl-none text-white'
-                    }`} // Rounded corners adjust based on sender
-                    style={{ backgroundColor: messageBubbleColor }} // Dynamic bubble color
+                    }`}
+                    style={{ backgroundColor: messageBubbleColor }}
                   >
                     <p>{message.content}</p>
                     <p className="text-[10px] text-opacity-70 mt-1 text-right">
                       {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
-                  {/* My message (right aligned) includes my avatar */}
                   {isMyMessage && (
                     <Image
-                      src={senderForBubble.profileImage || '/default-avatar.png'}
-                      alt={senderForBubble.displayName || 'User'}
+                      src={senderForBubble?.profileImage || '/default-avatar.png'}
+                      alt={senderForBubble?.displayName || 'User'}
                       width={32}
                       height={32}
                       className="w-8 h-8 rounded-full object-cover ml-2 flex-shrink-0"
@@ -449,7 +453,7 @@ export default function ChatPage() {
                 </div>
               );
             })}
-            <div ref={messagesEndRef} /> {/* Scroll target */}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Message Input Area */}
@@ -477,24 +481,6 @@ export default function ChatPage() {
           </form>
         </div>
       </div>
-
-      {/* Custom Scrollbar Styles */}
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(0,0,0,0.2);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,0.3);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255,255,255,0.5);
-        }
-      `}</style>
     </div>
   );
 }
