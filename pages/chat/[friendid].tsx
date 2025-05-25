@@ -41,6 +41,11 @@ const statusGlowStyles = {
 export default function ChatPage() {
   const router = useRouter();
   const { friendId } = router.query;
+  useEffect(() => {
+    console.log("🌐 Router ready:", router.isReady);
+    console.log("🆔 Friend ID:", friendId);
+  }, [router.isReady, friendId]);
+
 
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [friendProfile, setFriendProfile] = useState<Profile | null>(null);
