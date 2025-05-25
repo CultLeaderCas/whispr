@@ -465,7 +465,7 @@ export default function ChatPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Message Input Area */}
+          {/* Message Input Areaa */}
           <form onSubmit={handleSendMessage} className="mt-4 flex items-center space-x-3 bg-[#1e1e1e] border border-[#333] rounded-2xl p-2 shadow-lg">
             <button type="button" className="text-xl text-[#9500FF] p-2 hover:text-[#7a00d0] transition" title="Add Attachment">
               +
