@@ -206,7 +206,6 @@ export default function ChatPage() {
     };
 
     const optimisticMessage: Message = {
-      client_tag: clientTag,
       ...messageToInsert,
       id: `optimistic-${Date.now()}`,
       created_at: new Date().toISOString(),
