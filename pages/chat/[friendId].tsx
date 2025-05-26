@@ -42,15 +42,6 @@ export default function ChatPage() {
   const router = useRouter();
   const { friendId } = router.query;
 
-  useEffect(() => {
-    if (!router.isReady || !friendId || typeof friendId !== 'string') {
-      console.warn('⏳ Waiting for router or friendId...');
-      return;
-    }
-    console.log('✅ Router ready:', router.isReady);
-    console.log('📡 Friend ID:', friendId);
-  }, [router.isReady, friendId]);
-
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [friendProfile, setFriendProfile] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -209,12 +200,7 @@ export default function ChatPage() {
               recipient_profile: recipientProfile || null,
             };
 
-setMessages((prev) => {
-  if (!prev.some(msg => msg.id === newMessageWithProfiles.id)) {
-    return [...prev, newMessageWithProfiles];
-  }
-  return prev;
-});
+            setMessages((prevMessages) => [...prevMessages, newMessageWithProfiles]);
           })
           .subscribe((status, err) => {
             if (status === 'SUBSCRIBED') console.log(`Subscribed to chat_messages:${currentChatId}`);
