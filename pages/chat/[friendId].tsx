@@ -24,9 +24,11 @@ interface Message {
   recipient_id: string;
   content: string;
   created_at: string;
+  client_tag?: string; // 👈 ADD THIS LINE
   sender_profile?: Pick<Profile, 'id' | 'displayName' | 'profileImage' | 'chat_bubble_color'> | null;
   recipient_profile?: Pick<Profile, 'id' | 'displayName' | 'profileImage' | 'chat_bubble_color'> | null;
 }
+
 
 const statusGlowStyles = {
   online: '0 0 0 2px #22C55E, 0 0 10px 5px rgba(34,197,94,0.7)',
