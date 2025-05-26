@@ -1093,7 +1093,6 @@ const handleSearch = async (e: React.FormEvent) => {
           type: 'friend_request',
           message: 'sent you a friend request!',
           is_read: false,
-          related_entity_id: null, // No related entity for friend request initially
         });
 
       if (insertError) throw insertError;
