@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabaseClient'; // make sure this is imported if not already
 
 export default function ProfileView() {
   const [profile, setProfile] = useState<any>(null);
@@ -21,6 +22,24 @@ export default function ProfileView() {
     const newStatus = e.target.value;
     setStatus(newStatus);
     localStorage.setItem('echno-status', newStatus);
+  };
+
+  const updateBubbleColor = async (color: string) => {
+    const saved = localStorage.getItem('echno-profile');
+    const user = saved ? JSON.parse(saved) : null;
+
+    if (!user?.id) return;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ chat_bubble_color: color })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error('Failed to update bubble color:', error.message);
+    } else {
+      console.log('✅ Bubble color updated:', color);
+    }
   };
 
   if (!profile) return <p>Loading...</p>;
@@ -76,44 +95,44 @@ export default function ProfileView() {
         textAlign: 'center',
         position: 'relative'
       }}>
-        {/* Profile Picture */}
-<div style={{
-  width: '120px',
-  height: '120px',
-  borderRadius: '50%',
-  overflow: 'visible', // important
-  margin: '0 auto',
-  border: `4px solid ${profile.themeColor}`,
-  boxShadow: `0 0 20px ${profile.themeColor}`,
-  position: 'relative'
-}}>
-  {profile.profileImage ? (
-    <img src={profile.profileImage} alt="Profile" style={{
-      width: '100%',
-      height: '100%',
-      objectFit: 'cover',
-      borderRadius: '50%'
-    }} />
-  ) : (
-    <div style={{ width: '100%', height: '100%', backgroundColor: '#111' }}>Profile</div>
-  )}
-  
-  {/* 💡 Glowing Status Indicator */}
-  <div style={{
-    position: 'absolute',
-    top: '-8px',
-    right: '-8px',
-    width: '22px',
-    height: '22px',
-    borderRadius: '50%',
-    border: '2px solid #111',
-    backgroundColor: statusStyles[status].backgroundColor,
-    boxShadow: statusStyles[status].boxShadow,
-    animation: statusStyles[status].animation || 'none',
-    zIndex: 10
-  }} />
-</div>
 
+        {/* Profile Picture */}
+        <div style={{
+          width: '120px',
+          height: '120px',
+          borderRadius: '50%',
+          overflow: 'visible',
+          margin: '0 auto',
+          border: `4px solid ${profile.themeColor}`,
+          boxShadow: `0 0 20px ${profile.themeColor}`,
+          position: 'relative'
+        }}>
+          {profile.profileImage ? (
+            <img src={profile.profileImage} alt="Profile" style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              borderRadius: '50%'
+            }} />
+          ) : (
+            <div style={{ width: '100%', height: '100%', backgroundColor: '#111' }}>Profile</div>
+          )}
+
+          {/* Status Indicator */}
+          <div style={{
+            position: 'absolute',
+            top: '-8px',
+            right: '-8px',
+            width: '22px',
+            height: '22px',
+            borderRadius: '50%',
+            border: '2px solid #111',
+            backgroundColor: statusStyles[status].backgroundColor,
+            boxShadow: statusStyles[status].boxShadow,
+            animation: statusStyles[status].animation || 'none',
+            zIndex: 10
+          }} />
+        </div>
 
         {/* Display Name */}
         <h1 style={{
@@ -160,7 +179,6 @@ export default function ProfileView() {
           {profile.bio || 'No status set.'}
         </p>
 
-        {/* View Bio Link */}
         <p style={{
           fontSize: '0.9rem',
           color: profile.themeColor,
@@ -189,6 +207,34 @@ export default function ProfileView() {
             <option value="dnd">🔴 Do Not Disturb</option>
             <option value="offline">⚫ Offline</option>
           </select>
+        </div>
+
+        {/* 💬 Bubble Color Picker */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '0.5rem',
+            fontWeight: 'bold',
+            fontSize: '0.9rem'
+          }}>Chat Bubble Color:</label>
+
+          <input
+            type="color"
+            value={profile.chat_bubble_color || '#12f7ff'}
+            onChange={(e) => {
+              const newColor = e.target.value;
+              setProfile({ ...profile, chat_bubble_color: newColor });
+              updateBubbleColor(newColor);
+            }}
+            style={{
+              width: '50px',
+              height: '50px',
+              borderRadius: '50%',
+              border: '3px solid white',
+              boxShadow: `0 0 10px ${profile.chat_bubble_color || '#12f7ff'}`,
+              cursor: 'pointer'
+            }}
+          />
         </div>
 
         {/* Buttons */}
