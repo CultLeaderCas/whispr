@@ -6,6 +6,7 @@ import { useRouter } from 'next/router';
 
 export default function CreateNodePage() {
   const [nodeName, setNodeName] = useState('');
+  const [iconFile, setIconFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function CreateNodePage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setIconFile(file);
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
@@ -22,24 +24,93 @@ export default function CreateNodePage() {
     reader.readAsDataURL(file);
   };
 
+  const uploadImageIfNeeded = async (): Promise<string | null> => {
+    if (!iconFile) return null;
+
+    const fileExt = iconFile.name.split('.').pop();
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+    const { data, error } = await supabase.storage
+      .from('node-icons')
+      .upload(fileName, iconFile);
+
+    if (error) {
+      console.error('Image upload failed:', error.message);
+      return null;
+    }
+
+    const { data: publicUrl } = supabase
+      .storage
+      .from('node-icons')
+      .getPublicUrl(fileName);
+
+    return publicUrl.publicUrl;
+  };
+
   const handleCreateNode = async () => {
     if (!nodeName.trim()) {
       alert('Node name is required.');
       return;
     }
 
-    const { error } = await supabase.from('nodes').insert([
-      {
-        name: nodeName.trim(),
-        icon: imagePreview || null
-      }
-    ]);
-
-    if (error) {
-      alert('Failed to create node: ' + error.message);
-    } else {
-      router.push('/pulse');
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user) {
+      alert("You must be logged in to create a node.");
+      return;
     }
+
+    const iconUrl = await uploadImageIfNeeded();
+
+    const { data: nodeData, error: nodeError } = await supabase
+      .from('nodes')
+      .insert({
+        name: nodeName.trim(),
+        icon: iconUrl,
+        owner_id: user.id,
+      })
+      .select()
+      .single();
+
+    if (nodeError || !nodeData) {
+      console.error('Node creation error:', nodeError);
+      return alert("Failed to create node.");
+    }
+
+    const adminRole = {
+      id: crypto.randomUUID(),
+      node_id: nodeData.id,
+      name: "Admin",
+      color: "#12f7ff",
+      permissions: {
+        can_manage_members: true,
+        can_create_channels: true,
+        can_delete_messages: true,
+        can_edit_node: true,
+      }
+    };
+
+    const { error: roleError } = await supabase
+      .from('node_roles')
+      .insert({ ...adminRole, permissions: JSON.stringify(adminRole.permissions) });
+
+    if (roleError) {
+      console.error('Role creation error:', roleError);
+      return alert("Failed to assign admin role.");
+    }
+
+    const { error: memberError } = await supabase
+      .from('node_members')
+      .insert({
+        node_id: nodeData.id,
+        user_id: user.id,
+        role_id: adminRole.id,
+      });
+
+    if (memberError) {
+      console.error('Membership error:', memberError);
+      return alert("Failed to add you to the node.");
+    }
+
+    router.push('/pulse');
   };
 
   return (
