@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
 import Link from 'next/link';
+import NodeHeader from '@/components/NodeHeader';
 
 interface Node {
   id: string;
@@ -147,10 +148,13 @@ export default function NodeViewPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        <div className="border-b border-[#333] p-4">
-          <h1 className="text-xl font-bold">{node?.name || 'Loading...'}</h1>
-          <p className="text-xs text-[#888]">Node ID: {node?.id}</p>
-        </div>
+{node && (
+  <NodeHeader
+    nodeId={node.id}
+    nodeName={node.name}
+    nodeIcon={node.icon ?? null}
+  />
+)}
 
         <div className="flex-1 flex">
           {/* Channel List */}
