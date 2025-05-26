@@ -136,7 +136,7 @@ export default function NodeViewPage() {
               />
               <div>
                 <p className="font-bold text-sm">{userProfile.username}</p>
-                <Link href="/profileview">
+                <Link href="/profile">
                   <p className="text-xs text-[#aaa] underline">Edit Profile</p>
                 </Link>
               </div>
