@@ -335,8 +335,13 @@ export default function ChatPage() {
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
               {messages.map((message) => {
                 const isMyMessage = message.sender_id === currentUser.id;
-                const senderForBubble = message.sender_profile || (isMyMessage ? currentUser : friendProfile);
-                const messageBubbleColor = senderForBubble?.chat_bubble_color || (isMyMessage ? myBubbleColor : friendBubbleColor);
+              const sender = isMyMessage ? currentUser : friendProfile;
+const senderForBubble = message.sender_profile ?? sender;
+const messageBubbleColor =
+  senderForBubble?.chat_bubble_color ??
+  sender?.chat_bubble_color ??
+  (isMyMessage ? '#12f7ff' : '#fe019a');
+
 
                 return (
                   <div
