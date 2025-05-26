@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
+import NodeSidebar from '@/components/NodeSidebar';
 
 interface Node {
   id: string;
