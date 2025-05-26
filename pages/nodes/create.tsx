@@ -46,72 +46,54 @@ export default function CreateNodePage() {
     return publicUrl.publicUrl;
   };
 
-  const handleCreateNode = async () => {
-    if (!nodeName.trim()) {
-      alert('Node name is required.');
+const handleCreateNode = async () => {
+  if (!nodeName.trim()) {
+    alert('Node name is required.');
+    return;
+  }
+
+  const file = fileInputRef.current?.files?.[0];
+  let publicUrl = null;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (file && user) {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `${user.id}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('node-icons')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError.message);
+      alert('Failed to upload image.');
       return;
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (!user) {
-      alert("You must be logged in to create a node.");
-      return;
-    }
+    const { data } = supabase.storage
+      .from('node-icons')
+      .getPublicUrl(filePath);
 
-    const iconUrl = await uploadImageIfNeeded();
+    publicUrl = data?.publicUrl;
+  }
 
-    const { data: nodeData, error: nodeError } = await supabase
-      .from('nodes')
-      .insert({
-        name: nodeName.trim(),
-        icon: iconUrl,
-        owner_id: user.id,
-      })
-      .select()
-      .single();
+  const { error } = await supabase.from('nodes').insert([
+    {
+      name: nodeName.trim(),
+      icon: publicUrl,
+    },
+  ]);
 
-    if (nodeError || !nodeData) {
-      console.error('Node creation error:', nodeError);
-      return alert("Failed to create node.");
-    }
-
-    const adminRole = {
-      id: crypto.randomUUID(),
-      node_id: nodeData.id,
-      name: "Admin",
-      color: "#12f7ff",
-      permissions: {
-        can_manage_members: true,
-        can_create_channels: true,
-        can_delete_messages: true,
-        can_edit_node: true,
-      }
-    };
-
-    const { error: roleError } = await supabase
-      .from('node_roles')
-      .insert({ ...adminRole, permissions: JSON.stringify(adminRole.permissions) });
-
-    if (roleError) {
-      console.error('Role creation error:', roleError);
-      return alert("Failed to assign admin role.");
-    }
-
-    const { error: memberError } = await supabase
-      .from('node_members')
-      .insert({
-        node_id: nodeData.id,
-        user_id: user.id,
-        role_id: adminRole.id,
-      });
-
-    if (memberError) {
-      console.error('Membership error:', memberError);
-      return alert("Failed to add you to the node.");
-    }
-
+  if (error) {
+    alert('Failed to create node: ' + error.message);
+  } else {
     router.push('/pulse');
-  };
+  }
+};
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-[#0f001f] text-white font-sans">
