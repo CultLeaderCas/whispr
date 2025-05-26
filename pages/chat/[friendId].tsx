@@ -162,7 +162,13 @@ export default function ChatPage() {
               recipient_profile: recipientProfile || null,
             };
 
-            setMessages((prevMessages) => [...prevMessages, newMessageWithProfiles]);
+           setMessages((prevMessages) => {
+  const withoutOptimistic = prevMessages.filter(
+    msg => msg.client_tag !== newMessageWithProfiles.client_tag
+  );
+  return [...withoutOptimistic, newMessageWithProfiles];
+});
+
           })
           .subscribe((status, err) => {
             if (status === 'SUBSCRIBED') console.log(`Subscribed to chat_messages:${currentChatId}`);
