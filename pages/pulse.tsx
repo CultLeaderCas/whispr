@@ -233,13 +233,13 @@ useEffect(() => {
       <div className="absolute inset-0 z-0">{stars}</div>
 
     <div className="relative z-10 max-w-[1440px] mx-auto pt-4 flex min-h-screen">
-     {/* Left Panel – Nodes */}
+{/* Left Panel – Nodes */}
 <div className="w-[220px] bg-[#111] border-r border-[#333] p-4 space-y-4 overflow-y-auto relative">
   {/* Title and Create Button Row */}
   <div className="flex items-center justify-between mb-3">
     <h3 className="text-lg font-bold">Nodes</h3>
     <button
-      onClick={() => alert('Open Create Node Modal')}
+      onClick={() => router.push('/nodes/create')}
       className="text-xs text-black font-bold bg-[#12f7ff] hover:bg-[#0fd0e0] transition px-2 py-1 rounded-lg shadow flex items-center gap-1"
       title="Create Node"
     >
@@ -249,27 +249,27 @@ useEffect(() => {
 
   {/* Dynamic Node List */}
   <div className="space-y-3">
-  {(!nodes || nodes.length === 0) ? (
-    <p className="text-sm text-[#888] italic">No nodes yet.</p>
-  ) : (
-    nodes.map((node: any) => (
-      <div
-        key={node.id}
-        className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer"
-        onClick={() => router.push(`/nodes/${node.id}`)}
-      >
-        <Image
-          src={node.icon || '/default-node.png'}
-          className="w-10 h-10 rounded-full border border-[#9500FF]"
-          alt="Node Icon"
-          width={40}
-          height={40}
-        />
-        <span className="text-sm font-bold truncate">{node.name}</span>
-      </div>
-    ))
-  )}
-</div>
+    {Array.isArray(nodes) && nodes.length === 0 ? (
+      <p className="text-sm text-[#888] italic">No nodes yet.</p>
+    ) : (
+      nodes.map((node: any) => (
+        <div
+          key={node.id}
+          className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer"
+          onClick={() => router.push(`/nodes/${node.id}`)}
+        >
+          <Image
+            src={node.icon || '/default-node.png'}
+            className="w-10 h-10 rounded-full border border-[#9500FF]"
+            alt="Node Icon"
+            width={40}
+            height={40}
+          />
+          <span className="text-sm font-bold truncate">{node.name}</span>
+        </div>
+      ))
+    )}
+  </div>
 </div>
 
 
