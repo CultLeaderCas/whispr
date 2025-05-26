@@ -53,6 +53,7 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const themePickerRef = useRef<HTMLInputElement>(null);
   const innerPickerRef = useRef<HTMLInputElement>(null);
+  const bubblePickerRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (event: any) => {
     const file = event.target.files?.[0];
@@ -92,6 +93,7 @@ const handleSave = async () => {
     emoji: profile.emoji,
     themeColor: profile.themeColor,
     innerColor: profile.innerColor,
+    chat_bubble_color: profile.chat_bubble_color,
     profileImage: profile.profileImage,
     email: user.email, // 💙 This line adds the email to the database
   };
@@ -248,10 +250,25 @@ const handleSave = async () => {
             marginTop: '0.6rem',
             boxShadow: `0 0 8px ${profile.innerColor}`
           }} />
+
+          <label style={{ fontSize: '0.85rem', marginTop: '1rem', marginBottom: '0.4rem', display: 'block', color: '#aaa' }}>
+            Choose Chat Bubble Color
+          </label>
+          <div onClick={() => openColorPicker(bubblePickerRef)} style={{
+            backgroundColor: profile.chat_bubble_color || '#12f7ff',
+            width: '2.5rem',
+            height: '2.5rem',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            margin: '0 auto',
+            border: '2px solid white',
+            boxShadow: `0 0 10px ${profile.chat_bubble_color || '#12f7ff'}`
+          }} title="Click to choose chat bubble color" />
         </div>
 
         <input type="color" ref={themePickerRef} onChange={e => handleChange('themeColor', e.target.value)} style={{ display: 'none' }} />
         <input type="color" ref={innerPickerRef} onChange={e => handleChange('innerColor', e.target.value)} style={{ display: 'none' }} />
+        <input type="color" ref={bubblePickerRef} onChange={e => handleChange('chat_bubble_color', e.target.value)} style={{ display: 'none' }} />
 
         {/* Emoji */}
         <input
