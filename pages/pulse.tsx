@@ -30,6 +30,21 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
   const [friends, setFriends] = useState<Profile[]>([]); // Use Profile interface
   const [currentUsersProfile, setCurrentUsersProfile] = useState<Profile | null>(null);
   const router = useRouter();
+  const [nodes, setNodes] = useState<any[]>([]);
+
+// Simulate fetching nodes from database
+useEffect(() => {
+  const fetchNodes = async () => {
+    const { data, error } = await supabase.from('nodes').select('*');
+    if (error) {
+      console.error('Error fetching nodes:', error.message);
+    } else {
+      setNodes(data || []);
+    }
+  };
+
+  fetchNodes();
+}, []);
 
   // --- Fetch Current User's Profile for Right Panel ---
   useEffect(() => {
@@ -217,153 +232,154 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
 
       <div className="absolute inset-0 z-0">{stars}</div>
 
-      <div className="relative z-10 max-w-[1440px] mx-auto pt-4 flex min-h-screen">
-        {/* Left Panel – Nodes */}
-        <div className="w-[220px] bg-[#111] border-r border-[#333] p-4 space-y-4 overflow-y-auto">
-          <h3 className="text-lg font-bold mb-3">Nodes</h3>
-          <div className="space-y-3">
-         <div className="space-y-3">
-  {/* Static Nodes (Placeholder for now) */}
-  <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
-    <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
-    <span className="text-sm font-bold">CultOfCas</span>
-  </div>
-  <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
-    <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
-    <span className="text-sm font-bold">Fortnite</span>
+    <div className="relative z-10 max-w-[1440px] mx-auto pt-4 flex min-h-screen">
+     {/* Left Panel – Nodes */}
+<div className="w-[220px] bg-[#111] border-r border-[#333] p-4 space-y-4 overflow-y-auto relative">
+  {/* Title and Create Button Row */}
+  <div className="flex items-center justify-between mb-3">
+    <h3 className="text-lg font-bold">Nodes</h3>
+    <button
+      onClick={() => alert('Open Create Node Modal')}
+      className="text-xs text-black font-bold bg-[#12f7ff] hover:bg-[#0fd0e0] transition px-2 py-1 rounded-lg shadow flex items-center gap-1"
+      title="Create Node"
+    >
+      <span>Create</span> <span className="text-lg">➕</span>
+    </button>
   </div>
 
-  {/* ➕ Create Node Button */}
-  <button
-    className="mt-3 w-full px-3 py-2 rounded-xl bg-[#12f7ff] text-black font-bold text-sm hover:bg-[#0fd0e0] transition shadow-md flex items-center justify-center gap-2"
-    onClick={() => alert('Create Node Modal (coming soon)')}
-  >
-    Create Node <span className="text-xl">➕</span>
-  </button>
+  {/* Dynamic Node List */}
+  <div className="space-y-3">
+  {(!nodes || nodes.length === 0) ? (
+    <p className="text-sm text-[#888] italic">No nodes yet.</p>
+  ) : (
+    nodes.map((node: any) => (
+      <div
+        key={node.id}
+        className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer"
+        onClick={() => router.push(`/nodes/${node.id}`)}
+      >
+        <Image
+          src={node.icon || '/default-node.png'}
+          className="w-10 h-10 rounded-full border border-[#9500FF]"
+          alt="Node Icon"
+          width={40}
+          height={40}
+        />
+        <span className="text-sm font-bold truncate">{node.name}</span>
+      </div>
+    ))
+  )}
 </div>
-          </div>
-          <div className="mt-4">
-            <h4 className="text-sm font-bold mb-2">Your Nodes</h4>
-            <ul className="space-y-2">
-              <li className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
-                <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
-                <span className="text-sm font-bold">My Node 1</span>
-              </li>
-              <li className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
-                <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
-                <span className="text-sm font-bold">My Node 2</span>
-              </li>
-            </ul>
-          </div>   
-        </div>
+</div>
 
-        {/* Center Panel – Friends */}
-        <div className="flex-1 p-6 overflow-y-auto">
-          <h2 className="text-xl font-bold mb-4">Friends</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {friends.map((friend) => (
+
+      {/* Center Panel – Friends */}
+      <div className="flex-1 p-6 overflow-y-auto">
+        <h2 className="text-xl font-bold mb-4">Friends</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {friends.map((friend) => (
+            <div
+              key={friend.id}
+              className="bg-[#1e1e1e] p-4 rounded-2xl shadow-lg hover:bg-[#272727] transition cursor-pointer"
+              onClick={() => handleFriendCardClick(friend.id)}
+            >
               <div
-                key={friend.id}
-                className="bg-[#1e1e1e] p-4 rounded-2xl shadow-lg hover:bg-[#272727] transition cursor-pointer"
-                onClick={() => handleFriendCardClick(friend.id)}
+                className={`relative w-16 h-16 rounded-full overflow-hidden mx-auto mb-2 transition-shadow duration-200 ease-in-out`}
+                style={{
+                  boxShadow: statusGlowStyles[(friend.online_status as keyof typeof statusGlowStyles) || 'offline'], // Re-added status glow
+                  border: `2px solid ${friend.themeColor || '#12f7ff'}` // Re-added theme color border
+                }}
               >
-                <div
-                  className={`relative w-16 h-16 rounded-full overflow-hidden mx-auto mb-2 transition-shadow duration-200 ease-in-out`}
-                  style={{
-                    boxShadow: statusGlowStyles[(friend.online_status as keyof typeof statusGlowStyles) || 'offline'], // Re-added status glow
-                    border: `2px solid ${friend.themeColor || '#12f7ff'}` // Re-added theme color border
-                  }}
-                >
-                  <Image
-                    src={friend.profileImage || '/default-avatar.png'}
-                    alt={friend.displayName || 'Friend'}
-                    width={64}
-                    height={64}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="text-center">
-                  <p className="font-bold">{friend.displayName || 'Unknown'}</p>
-                  <p className="text-sm text-[#aaa]">@{friend.username}</p>
-                  {friend.public_status && (
-                    <p className="text-xs italic text-[#9500FF] mt-1 truncate">
-                      {friend.public_status}
-                    </p>
-                  )}
-                  <p className="text-xs italic text-[#555] mt-1">💫 Friend</p>
-                </div>
+                <Image
+                  src={friend.profileImage || '/default-avatar.png'}
+                  alt={friend.displayName || 'Friend'}
+                  width={64}
+                  height={64}
+                  className="w-full h-full object-cover"
+                />
               </div>
-            ))}
+              <div className="text-center">
+                <p className="font-bold">{friend.displayName || 'Unknown'}</p>
+                <p className="text-sm text-[#aaa]">@{friend.username}</p>
+                {friend.public_status && (
+                  <p className="text-xs italic text-[#9500FF] mt-1 truncate">
+                    {friend.public_status}
+                  </p>
+                )}
+                <p className="text-xs italic text-[#555] mt-1">💫 Friend</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        {children}
+      </div>
+
+      {/* Right Panel – Current User Profile / Add Friends / Notifications / Music */}
+      <div className="w-[260px] bg-[#111] border-l border-[#333] p-4 sticky top-0 h-screen flex flex-col items-center">
+        {currentUsersProfile ? (
+          <>
+            <Image
+              src={currentUsersProfile.profileImage || '/default-avatar.png'}
+              alt={currentUsersProfile.displayName || 'Your Profile'}
+              width={80}
+              height={80}
+              className="w-20 h-20 rounded-full border-2 object-cover mx-auto mb-3"
+              style={{ borderColor: currentUsersProfile.themeColor || '#12f7ff' }} // Re-added theme color border
+            />
+            <p className="font-bold text-lg text-center">{currentUsersProfile.displayName || 'Your Name'}</p>
+            <p className="text-sm text-[#aaa] mt-1 text-center">@{currentUsersProfile.username || 'your_username'}</p>
+            <a
+              href="/profile"
+              className="mt-4 px-4 py-2 bg-[#fe019a] text-white font-bold text-sm rounded-xl hover:bg-[#d0017e] transition shadow-md"
+            >
+              View/Edit Profile
+            </a>
+          </>
+        ) : (
+          <div className="text-center text-[#888] my-4">
+            <p>Loading profile...</p>
           </div>
-          {children}
+        )}
+
+        <div className="mt-6 w-full flex justify-center items-center space-x-2">
+          <AddFriendsDropdown />
+          <NotificationBell />
         </div>
 
-        {/* Right Panel – Current User Profile / Add Friends / Notifications / Music */}
-        <div className="w-[260px] bg-[#111] border-l border-[#333] p-4 sticky top-0 h-screen flex flex-col items-center">
-          {currentUsersProfile ? (
-            <>
-              <Image
-                src={currentUsersProfile.profileImage || '/default-avatar.png'}
-                alt={currentUsersProfile.displayName || 'Your Profile'}
-                width={80}
-                height={80}
-                className="w-20 h-20 rounded-full border-2 object-cover mx-auto mb-3"
-                style={{ borderColor: currentUsersProfile.themeColor || '#12f7ff' }} // Re-added theme color border
-              />
-              <p className="font-bold text-lg text-center">{currentUsersProfile.displayName || 'Your Name'}</p>
-              <p className="text-sm text-[#aaa] mt-1 text-center">@{currentUsersProfile.username || 'your_username'}</p>
-              <a
-                href="/profile"
-                className="mt-4 px-4 py-2 bg-[#fe019a] text-white font-bold text-sm rounded-xl hover:bg-[#d0017e] transition shadow-md"
+        <div className="mt-6 pt-6 border-t border-[#333] w-full text-center">
+          <h4 className="text-sm font-bold mb-2">Now Playing</h4>
+          <div className="bg-[#1a1a1a] p-3 rounded-xl text-sm text-[#ccc]">
+            🎵 No song playing<br />
+            {/* Display current user's online status from right panel profile if available */}
+            {currentUsersProfile?.online_status ? (
+              <span
+                className={`capitalize ${
+                  currentUsersProfile.online_status === 'online'
+                    ? 'text-green-400'
+                    : currentUsersProfile.online_status === 'dnd'
+                    ? 'text-red-400'
+                    : currentUsersProfile.online_status === 'away'
+                    ? 'text-yellow-400'
+                    : 'text-gray-400'
+                }`}
               >
-                View/Edit Profile
-              </a>
-            </>
-          ) : (
-            <div className="text-center text-[#888] my-4">
-              <p>Loading profile...</p>
-            </div>
-          )}
-
-          <div className="mt-6 w-full flex justify-center items-center space-x-2">
-            <AddFriendsDropdown />
-            <NotificationBell />
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-[#333] w-full text-center">
-            <h4 className="text-sm font-bold mb-2">Now Playing</h4>
-            <div className="bg-[#1a1a1a] p-3 rounded-xl text-sm text-[#ccc]">
-              🎵 No song playing<br />
-              {/* Display current user's online status from right panel profile if available */}
-              {currentUsersProfile?.online_status ? (
-                <span
-                  className={`capitalize ${
-                    currentUsersProfile.online_status === 'online'
-                      ? 'text-green-400'
-                      : currentUsersProfile.online_status === 'dnd'
-                      ? 'text-red-400'
-                      : currentUsersProfile.online_status === 'away'
-                      ? 'text-yellow-400'
-                      : 'text-gray-400'
-                  }`}
-                >
-                  {currentUsersProfile.online_status === 'online' && '🍏 Online'}
-                  {currentUsersProfile.online_status === 'dnd' && '🍒 Do Not Disturb'}
-                  {currentUsersProfile.online_status === 'away' && '🌙 Away'}
-                  {currentUsersProfile.online_status === 'offline' && '👾 Offline'}
-                </span>
-              ) : (
-                <span className="text-gray-400">👾 Offline</span>
-              )}
-            </div>
+                {currentUsersProfile.online_status === 'online' && '🍏 Online'}
+                {currentUsersProfile.online_status === 'dnd' && '🍒 Do Not Disturb'}
+                {currentUsersProfile.online_status === 'away' && '🌙 Away'}
+                {currentUsersProfile.online_status === 'offline' && '👾 Offline'}
+              </span>
+            ) : (
+              <span className="text-gray-400">👾 Offline</span>
+            )}
           </div>
         </div>
       </div>
-
-      {/* MyProfileCorner */}
-      <MyProfileCorner />
     </div>
-  );
+
+    {/* MyProfileCorner */}
+    <MyProfileCorner />
+  </div>
+);
 }
 
 
