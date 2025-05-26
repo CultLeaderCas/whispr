@@ -209,7 +209,12 @@ export default function ChatPage() {
               recipient_profile: recipientProfile || null,
             };
 
-            setMessages((prevMessages) => [...prevMessages, newMessageWithProfiles]);
+setMessages((prev) => {
+  if (!prev.some(msg => msg.id === newMessageWithProfiles.id)) {
+    return [...prev, newMessageWithProfiles];
+  }
+  return prev;
+});
           })
           .subscribe((status, err) => {
             if (status === 'SUBSCRIBED') console.log(`Subscribed to chat_messages:${currentChatId}`);
