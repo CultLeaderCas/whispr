@@ -25,7 +25,7 @@ const statusGlowStyles = {
   offline: '0 0 0 2px #6B7280, 0 0 8px 3px rgba(107,114,128,0.5)',
 };
 
-export default function PulsePage() {
+export default function PulseLayout({ children }: { children: React.ReactNode }) {
   const [stars, setStars] = useState<JSX.Element[]>([]);
   const [friends, setFriends] = useState<Profile[]>([]); // Use Profile interface
   const [currentUsersProfile, setCurrentUsersProfile] = useState<Profile | null>(null);
@@ -222,15 +222,39 @@ export default function PulsePage() {
         <div className="w-[220px] bg-[#111] border-r border-[#333] p-4 space-y-4 overflow-y-auto">
           <h3 className="text-lg font-bold mb-3">Nodes</h3>
           <div className="space-y-3">
-            <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
-              <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
-              <span className="text-sm font-bold">CultOfCas</span>
-            </div>
-            <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
-              <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
-              <span className="text-sm font-bold">Fortnite</span>
-            </div>
+         <div className="space-y-3">
+  {/* Static Nodes (Placeholder for now) */}
+  <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
+    <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
+    <span className="text-sm font-bold">CultOfCas</span>
+  </div>
+  <div className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
+    <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
+    <span className="text-sm font-bold">Fortnite</span>
+  </div>
+
+  {/* ➕ Create Node Button */}
+  <button
+    className="mt-3 w-full px-3 py-2 rounded-xl bg-[#12f7ff] text-black font-bold text-sm hover:bg-[#0fd0e0] transition shadow-md flex items-center justify-center gap-2"
+    onClick={() => alert('Create Node Modal (coming soon)')}
+  >
+    Create Node <span className="text-xl">➕</span>
+  </button>
+</div>
           </div>
+          <div className="mt-4">
+            <h4 className="text-sm font-bold mb-2">Your Nodes</h4>
+            <ul className="space-y-2">
+              <li className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
+                <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
+                <span className="text-sm font-bold">My Node 1</span>
+              </li>
+              <li className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer">
+                <Image src="/default-node.png" className="w-10 h-10 rounded-full border border-[#9500FF]" alt="Node Icon" width={40} height={40} />
+                <span className="text-sm font-bold">My Node 2</span>
+              </li>
+            </ul>
+          </div>   
         </div>
 
         {/* Center Panel – Friends */}
@@ -271,7 +295,7 @@ export default function PulsePage() {
               </div>
             ))}
           </div>
-          
+          {children}
         </div>
 
         {/* Right Panel – Current User Profile / Add Friends / Notifications / Music */}
