@@ -1056,7 +1056,7 @@ const handleSearch = async (e: React.FormEvent) => {
       const { data: existingFriendship, error: friendshipError } = await supabase
         .from('friends')
         .select('*')
-        .or(`(user_id.eq.${currentUser.user.id},friend_id.eq.${searchResult.id}),(user_id.eq.${searchResult.id},friend_id.eq.${currentUser.user.id})`);
+.or(`and(user_id.eq.${currentUser.user.id},friend_id.eq.${searchResult.id}),and(user_id.eq.${searchResult.id},friend_id.eq.${currentUser.user.id})`);
 
       if (friendshipError) throw friendshipError;
 
