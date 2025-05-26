@@ -1,82 +1,99 @@
 // pages/nodes/create.tsx
 
-import { useState } from 'react';
-import { useRouter } from 'next/router';
+import { useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/router';
 
 export default function CreateNodePage() {
-  const [name, setName] = useState('');
-  const [iconUrl, setIconUrl] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [nodeName, setNodeName] = useState('');
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setImagePreview(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleCreateNode = async () => {
-    if (!name.trim()) {
-      alert("Node name is required!");
+    if (!nodeName.trim()) {
+      alert('Node name is required.');
       return;
     }
 
-    setIsSubmitting(true);
-
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      alert("You must be logged in to create a node.");
-      return;
-    }
-
-    const { error } = await supabase.from('nodes').insert({
-      name,
-      icon: iconUrl || null,
-      creator_id: user.id
-    });
+    const { error } = await supabase.from('nodes').insert([
+      {
+        name: nodeName.trim(),
+        icon: imagePreview || null
+      }
+    ]);
 
     if (error) {
-      console.error('Error creating node:', error.message);
-      alert("Failed to create node.");
-      setIsSubmitting(false);
-      return;
+      alert('Failed to create node: ' + error.message);
+    } else {
+      router.push('/pulse');
     }
-
-    router.push('/pulse'); // Redirect to pulse after creation
   };
 
   return (
-    <main className="min-h-screen bg-[#0a001f] text-white font-sans flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-[#111] rounded-3xl p-8 shadow-2xl border border-[#333]">
-        <h1 className="text-2xl font-bold mb-4 text-center">🌐 Create a New Node</h1>
+    <main className="min-h-screen flex items-center justify-center bg-[#0f001f] text-white font-sans">
+      <div className="bg-[#111] p-8 rounded-2xl shadow-lg w-full max-w-md border border-[#333]">
+        <h1 className="text-2xl font-bold text-center mb-6">
+          🌐 Create a New Node
+        </h1>
 
-        <label className="block mb-2 text-sm font-semibold">Node Name</label>
+        {/* Image Preview and Upload */}
+        <div className="flex flex-col items-center mb-6">
+          {imagePreview ? (
+            <img
+              src={imagePreview}
+              alt="Node Icon Preview"
+              className="w-24 h-24 rounded-full border-2 border-[#9500FF] mb-2 object-cover"
+            />
+          ) : (
+            <div className="w-24 h-24 rounded-full bg-[#222] border-2 border-[#555] mb-2" />
+          )}
+          <button
+            className="text-xs px-3 py-1 bg-[#333] text-white border border-[#9500FF] rounded hover:bg-[#444] transition"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Upload Node Icon
+          </button>
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            onChange={handleImageUpload}
+            className="hidden"
+          />
+        </div>
+
+        <label className="block text-sm font-bold mb-1">Node Name</label>
         <input
           type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={nodeName}
+          onChange={(e) => setNodeName(e.target.value)}
           placeholder="e.g. Starbase Alpha"
-          className="w-full p-3 rounded-lg bg-[#1e1e1e] text-white border border-[#444] mb-4 focus:outline-none focus:ring-2 focus:ring-[#9500FF]"
-        />
-
-        <label className="block mb-2 text-sm font-semibold">Node Icon URL (Optional)</label>
-        <input
-          type="text"
-          value={iconUrl}
-          onChange={(e) => setIconUrl(e.target.value)}
-          placeholder="https://example.com/icon.png"
-          className="w-full p-3 rounded-lg bg-[#1e1e1e] text-white border border-[#444] mb-6 focus:outline-none focus:ring-2 focus:ring-[#12f7ff]"
+          className="w-full mb-4 px-4 py-2 rounded bg-[#222] border border-[#444] focus:outline-none"
         />
 
         <button
           onClick={handleCreateNode}
-          disabled={isSubmitting}
-          className="w-full bg-[#12f7ff] hover:bg-[#0fd0e0] text-black font-bold py-3 px-6 rounded-xl shadow-md transition"
+          className="w-full bg-[#12f7ff] hover:bg-[#0fd0e0] text-black font-bold py-2 rounded-xl shadow-lg transition flex items-center justify-center gap-2"
         >
-          {isSubmitting ? 'Creating...' : 'Create Node ➕'}
+          Create Node <span className="text-lg">➕</span>
         </button>
 
         <p className="text-center mt-4 text-sm text-[#aaa]">
           Need to go back?{' '}
-          <a href="/pulse" className="underline text-[#fe019a] hover:text-pink-300">
+          <a href="/pulse" className="text-[#f0f] underline">
             Return to Pulse
           </a>
         </p>
