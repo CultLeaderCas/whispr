@@ -4,100 +4,187 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
-import NodeSidebar from '@/components/NodeSidebar';
+import Link from 'next/link';
 
 interface Node {
   id: string;
   name: string;
-  icon: string | null;
-  owner_id: string;
+  icon?: string;
+}
+
+interface Member {
+  id: string;
+  username: string;
+  profileImage?: string;
+  online_status?: string;
 }
 
 export default function NodeViewPage() {
   const router = useRouter();
-  const { id: nodeId } = router.query;
+  const { id } = router.query;
 
   const [node, setNode] = useState<Node | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [userProfile, setUserProfile] = useState<Member | null>(null);
+  const [userNodes, setUserNodes] = useState<Node[]>([]);
 
   useEffect(() => {
-    if (!nodeId || typeof nodeId !== 'string') return;
-
     const fetchNode = async () => {
-      const { data, error } = await supabase
-        .from('nodes')
-        .select('*')
-        .eq('id', nodeId)
-        .single();
+      if (!id || typeof id !== 'string') return;
 
-      if (error) {
-        console.error('Failed to fetch node:', error.message);
-      } else {
-        setNode(data);
-      }
-      setLoading(false);
+      const { data, error } = await supabase.from('nodes').select('*').eq('id', id).single();
+      if (data) setNode(data);
     };
 
     fetchNode();
-  }, [nodeId]);
+  }, [id]);
 
-  if (loading) {
-    return <div className="text-white p-6">Loading...</div>;
-  }
+  useEffect(() => {
+    const fetchMembers = async () => {
+      if (!id || typeof id !== 'string') return;
 
-  if (!node) {
-    return <div className="text-red-400 p-6">Node not found.</div>;
-  }
+      const { data, error } = await supabase
+        .from('node_members')
+        .select('user_id, profiles (id, username, profileImage, online_status)')
+        .eq('node_id', id);
+
+      if (data) {
+        const cleaned = data.map((m: any) => m.profiles);
+        setMembers(cleaned);
+      }
+    };
+
+    fetchMembers();
+  }, [id]);
+
+  useEffect(() => {
+    const fetchProfileAndNodes = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, username, profileImage, online_status')
+        .eq('id', user.id)
+        .single();
+
+      if (profile) setUserProfile(profile);
+
+      const { data: memberNodes } = await supabase
+        .from('node_members')
+        .select('node_id, nodes(id, name, icon)')
+        .eq('user_id', user.id);
+
+      if (memberNodes) {
+        const flattened = memberNodes.map((n: any) => n.nodes);
+        setUserNodes(flattened);
+      }
+    };
+
+    fetchProfileAndNodes();
+  }, []);
+
+  const statusColors: any = {
+    online: 'border-[#22C55E]',
+    away: 'border-[#F59E0B]',
+    dnd: 'border-[#EF4444]',
+    offline: 'border-[#6B7280]'
+  };
 
   return (
-    <div className="flex h-screen bg-[#0f0f0f] text-white">
-      {/* Left Sidebar */}
-      <div className="w-[240px] bg-[#111] p-4 border-r border-[#333] space-y-4">
-        <h2 className="font-bold text-lg">Nodes</h2>
-        <button
-          onClick={() => router.push('/pulse')}
-          className="w-full bg-[#12f7ff] text-black font-bold px-4 py-2 rounded-xl hover:bg-[#0fd0e0] transition"
-        >
-          Back to Pulse
-        </button>
-      </div>
+    <div className="flex min-h-screen bg-black text-white font-sans">
+      {/* Left Panel – Node List + My Profile */}
+      <div className="w-[220px] bg-[#111] border-r border-[#333] p-4 flex flex-col justify-between">
+        <div>
+          <Link href="/pulse">
+            <button className="w-full mb-4 px-3 py-2 rounded-xl bg-[#12f7ff] text-black font-bold text-sm hover:bg-[#0fd0e0] transition shadow-md">
+              Back to Pulse
+            </button>
+          </Link>
 
-      {/* Node Main View */}
-      <div className="flex-1 flex flex-col">
-        <div className="p-4 border-b border-[#333] flex items-center gap-4 bg-[#1a1a1a]">
-          {node.icon ? (
-            <Image
-              src={node.icon}
-              alt="Node Icon"
-              width={48}
-              height={48}
-              className="rounded-full object-cover border border-[#9500FF]"
-            />
-          ) : (
-            <div className="w-12 h-12 bg-[#333] rounded-full" />
-          )}
-          <div>
-            <h1 className="font-bold text-xl">{node.name}</h1>
-            <p className="text-xs text-[#888]">Node ID: {node.id}</p>
+          <h3 className="text-lg font-bold mb-2">Nodes</h3>
+          <div className="space-y-3">
+            {userNodes.map((node) => (
+              <div
+                key={node.id}
+                onClick={() => router.push(`/nodes/${node.id}`)}
+                className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer"
+              >
+                <Image
+                  src={node.icon || '/default-node.png'}
+                  alt="Node Icon"
+                  width={40}
+                  height={40}
+                  className="w-10 h-10 rounded-full border border-[#9500FF]"
+                />
+                <span className="text-sm font-bold truncate">{node.name}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Placeholder for chats and channels */}
+        {/* Profile Corner */}
+        {userProfile && (
+          <div className="mt-4 border-t border-[#333] pt-4">
+            <div className="flex items-center gap-3 cursor-pointer">
+              <Image
+                src={userProfile.profileImage || '/default-avatar.png'}
+                alt="Profile"
+                width={40}
+                height={40}
+                className={`w-10 h-10 rounded-full object-cover border-2 ${statusColors[userProfile.online_status || 'offline']}`}
+              />
+              <div>
+                <p className="font-bold text-sm">{userProfile.username}</p>
+                <Link href="/profileview">
+                  <p className="text-xs text-[#aaa] underline">Edit Profile</p>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        <div className="border-b border-[#333] p-4">
+          <h1 className="text-xl font-bold">{node?.name || 'Loading...'}</h1>
+          <p className="text-xs text-[#888]">Node ID: {node?.id}</p>
+        </div>
+
         <div className="flex-1 flex">
-          <div className="w-[280px] bg-[#111] border-r border-[#333] p-4">
-            <h3 className="text-sm font-bold mb-2"># Channels</h3>
-            <ul className="space-y-2">
-              <li className="text-[#12f7ff] cursor-pointer"># general</li>
-            </ul>
+          {/* Channel List */}
+          <div className="w-[200px] border-r border-[#333] p-4">
+            <h2 className="text-sm font-bold uppercase text-[#aaa] mb-2"># Channels</h2>
+            <p className="text-cyan-400 hover:underline cursor-pointer"># general</p>
           </div>
 
-          <div className="flex-1 p-6 overflow-y-auto">
-            <p className="italic text-[#aaa]">Welcome to the node!</p>
+          {/* Chat Area */}
+          <div className="flex-1 p-4">
+            <p className="text-[#aaa] italic">Welcome to the node!</p>
           </div>
 
-          <div className="w-[280px] bg-[#111] border-l border-[#333] p-4">
-            <h3 className="text-sm font-bold mb-2">Members</h3>
-            <p className="text-sm text-[#666] italic">Coming soon...</p>
+          {/* Member List */}
+          <div className="w-[200px] border-l border-[#333] p-4">
+            <h2 className="text-sm font-bold uppercase text-[#aaa] mb-2">Members</h2>
+            {members.length === 0 ? (
+              <p className="text-sm italic text-[#555]">Coming soon...</p>
+            ) : (
+              <ul className="space-y-2">
+                {members.map((member) => (
+                  <li key={member.id} className="flex items-center gap-2">
+                    <Image
+                      src={member.profileImage || '/default-avatar.png'}
+                      alt="User"
+                      width={28}
+                      height={28}
+                      className={`w-7 h-7 rounded-full object-cover border-2 ${statusColors[member.online_status || 'offline']}`}
+                    />
+                    <span className="text-sm">{member.username}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </div>
