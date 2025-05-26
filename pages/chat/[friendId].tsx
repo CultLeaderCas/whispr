@@ -332,7 +332,7 @@ export default function ChatPage() {
             </div>
 
             {/* Messages Container */}
-           <div
+            <div
   className="flex-1 overflow-y-auto pr-2 custom-scrollbar"
   style={{
     maxHeight: 'calc(100vh - 280px)', // Keeps chat within a nice visual frame
@@ -341,6 +341,7 @@ export default function ChatPage() {
     paddingBottom: '1rem',
   }}
 >
+
               {messages.map((message) => {
                 const isMyMessage = message.sender_id === currentUser.id;
               const sender = isMyMessage ? currentUser : friendProfile;
