@@ -915,10 +915,16 @@ function NotificationBell() {
               {notifications.map((note) => (
                 <div
                   key={note.id}
-                  className={`flex items-start p-3 rounded-lg mb-2 cursor-pointer transition ${
+                  // onClick moved conditionally into handleCardClick or specific buttons
+                  className={`flex items-start p-3 rounded-lg mb-2 transition ${
                     note.is_read ? 'bg-[#1a1a1a] text-[#aaa]' : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
-                  }`}
-                  onClick={() => handleCardClick(note)}
+                  } ${note.type !== 'friend_request' || note.is_read ? 'cursor-pointer' : ''}`} // Cursor for clickable items
+                  onClick={
+                    // Only allow main card click for navigation if not an unread friend request
+                    note.type !== 'friend_request' || note.is_read
+                      ? () => handleCardClick(note)
+                      : undefined // No main card click for unread friend requests
+                  }
                 >
                   <Image
                     src={note.from_user?.profileImage || '/default-avatar.png'}
@@ -935,8 +941,29 @@ function NotificationBell() {
                     <p className="text-xs text-[#888] mt-1">
                       {new Date(note.created_at).toLocaleString()}
                     </p>
+
+                    {/* --- NEW: Friend Request Action Buttons --- */}
+                    {note.type === 'friend_request' && !note.is_read && (
+                      <div className="mt-2 flex space-x-2">
+                        <button
+                          onClick={(e) => handleAcceptFriendRequest(e, note)}
+                          className="px-2 py-1 bg-[#22C55E] text-white text-xs rounded-lg hover:bg-[#1DA54D] transition"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={(e) => handleDenyFriendRequest(e, note)}
+                          className="px-2 py-1 bg-[#EF4444] text-white text-xs rounded-lg hover:bg-[#CC3333] transition"
+                        >
+                          Deny
+                        </button>
+                      </div>
+                    )}
+                    {/* --- END NEW LOGIC --- */}
+
                   </div>
-                  {!note.is_read && (
+                  {/* Mark as Read button - now only for non-friend-request types OR already read friend requests (though typically not needed then) */}
+                  {!note.is_read && note.type !== 'friend_request' && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation(); // Prevent card click from triggering
