@@ -1,5 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import Image from 'next/image'; // NEW for profile images
+import { useRouter } from 'next/router'; // NEW for navigation
 
 interface Notification {
   id: string;
@@ -8,8 +10,8 @@ interface Notification {
   message: string;
   is_read: boolean;
   created_at: string;
-  type: string; // e.g., 'friend_request', 'message', 'alert' etc.
-  // These are populated by the select query's join
+  type: string;
+  related_entity_id?: string; // For new_message routing
   from_user?: {
     id: string;
     displayName: string;
@@ -22,154 +24,133 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showPanel, setShowPanel] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
-  // State to hold the current user's ID
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null); // NEW
+  const router = useRouter(); // NEW
 
-  // Function to fetch notifications (used for initial load and real-time updates)
   const fetchNotifications = useCallback(async (userId: string) => {
     if (!userId) {
-      setNotifications([]); // Clear notifications if user is not available
+      setNotifications([]);
       return;
     }
-
     const { data, error } = await supabase
       .from("notifications")
       .select(`*, from_user:from_user_id (id, displayName, username, profileImage)`)
       .eq("to_user_id", userId)
       .order("created_at", { ascending: false });
-
     if (error) {
       console.error("❌ Notification fetch error:", error.message);
       return;
     }
-
     setNotifications(data || []);
-  }, []); // No dependencies other than it's a stable function
+  }, []);
 
-  // --- Effect to get current user and set up Realtime Subscription ---
   useEffect(() => {
-    let channel: any = null; // Declare channel here to be accessible in cleanup
-
+    let channel: any = null;
     const setupNotifications = async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-
       if (authError || !user) {
-        console.error("❌ Auth error or no user for notifications:", authError?.message);
         setCurrentUserId(null);
-        setNotifications([]); // Clear notifications if no user
+        setNotifications([]);
         return;
       }
+      setCurrentUserId(user.id);
+      fetchNotifications(user.id);
 
-      setCurrentUserId(user.id); // Set the current user ID
-      fetchNotifications(user.id); // Fetch initial notifications
-
-      // Subscribe to changes for the current user's notifications
       channel = supabase
-        .channel(`notifications_channel:${user.id}`) // Unique channel name per user
+        .channel(`notifications_channel:${user.id}`)
         .on(
           'postgres_changes',
           {
-            event: '*', // Listen for INSERT, UPDATE, DELETE
+            event: '*',
             schema: 'public',
             table: 'notifications',
-            filter: `to_user_id=eq.${user.id}` // Only get changes relevant to this user
+            filter: `to_user_id=eq.${user.id}`
           },
-          (payload) => {
-            console.log("Realtime notification change detected:", payload);
-            // Re-fetch all notifications to ensure consistency and correct order/filtering
-            fetchNotifications(user.id);
-          }
+          () => fetchNotifications(user.id)
         )
         .subscribe();
     };
-
     setupNotifications();
-
-    // Cleanup subscription on component unmount or user logout
     return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [fetchNotifications]);
+
+  // NEW: Handle click outside to close panel
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node) && !(event.target as HTMLElement).closest('button[title="Notifications"]')) {
+        setShowPanel(false);
       }
     };
-  }, [fetchNotifications]); // Depend on fetchNotifications to re-run if it changes (due to useCallback)
+    if (showPanel) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showPanel]);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const markAsRead = async (id: string) => {
-    if (!currentUserId) {
-        console.error("Cannot mark as read: User not authenticated.");
-        return;
-    }
-    const { error } = await supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("id", id)
-      .eq("to_user_id", currentUserId); // Ensure only updating current user's notification
-
-    if (error) {
-      console.error("Error marking notification as read:", error.message);
-      return;
-    }
-
-    // Update local state immediately for responsiveness
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-    );
+    if (!currentUserId) return;
+    await supabase.from("notifications").update({ is_read: true }).eq("id", id).eq("to_user_id", currentUserId);
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
   };
 
-  const getFromUserId = (note: Notification) =>
-    note.from_user?.id ?? note.from_user_id;
+  // NEW: Friend accept/deny
+  const handleAcceptFriendRequest = async (e: React.MouseEvent, note: Notification) => {
+    e.stopPropagation();
+    if (!currentUserId) return;
+    const requesterId = note.from_user?.id ?? note.from_user_id;
+    try {
+      await supabase.from('friends').insert([
+        { user_id: currentUserId, friend_id: requesterId },
+        { user_id: requesterId, friend_id: currentUserId },
+      ]);
+      await supabase.from('notifications').delete().eq('id', note.id);
+      setNotifications(prev => prev.filter(n => n.id !== note.id));
+      alert(`You are now friends with ${note.from_user?.displayName || 'Someone'}!`);
+    } catch (error: any) {
+      alert(error.message);
+    }
+  };
+  const handleDenyFriendRequest = async (e: React.MouseEvent, note: Notification) => {
+    e.stopPropagation();
+    await supabase.from('notifications').delete().eq('id', note.id);
+    setNotifications(prev => prev.filter(n => n.id !== note.id));
+  };
 
-  const getDisplayName = (note: Notification) =>
-    note.from_user?.displayName ?? "Someone";
-
+  // NEW: Routing based on notification type
   const handleCardClick = async (note: Notification) => {
-    const fromId = getFromUserId(note);
-    await markAsRead(note.id); // Mark as read when clicked
-
-    setIsFadingOut(true); // Start fade-out animation
-
-    // Delay navigation and panel hiding to allow animation to play
+    const fromId = note.from_user?.id ?? note.from_user_id;
+    await markAsRead(note.id);
+    setIsFadingOut(true);
     setTimeout(() => {
-      setShowPanel(false); // Hide the panel
-      setIsFadingOut(false); // Reset fade state for next time
-      // Navigate to the profile page
-      window.location.href = `/profile/${fromId}`;
-    }, 300); // Wait for animation duration
+      setShowPanel(false);
+      setIsFadingOut(false);
+      if (note.type === 'friend_request' || note.type === 'profile_view') {
+        router.push(`/profile/${fromId}`);
+      } else if (note.type === 'new_message' && note.related_entity_id) {
+        router.push(`/chat/${note.related_entity_id}`);
+      }
+    }, 300);
   };
 
   return (
     <div className="relative">
       <style jsx>{`
-        .fade-out {
-          animation: fadeOut 0.3s ease forwards;
-        }
+        .fade-out { animation: fadeOut 0.3s ease forwards; }
         @keyframes fadeOut {
-          from {
-            opacity: 1;
-            transform: scale(1);
-          }
-          to {
-            opacity: 0;
-            transform: scale(0.98);
-          }
+          from { opacity: 1; transform: scale(1); }
+          to { opacity: 0; transform: scale(0.98); }
         }
-        /* Custom Scrollbar Styles */
-        .custom-scroll::-webkit-scrollbar {
-          width: 8px; /* width of the scrollbar */
-        }
-        .custom-scroll::-webkit-scrollbar-track {
-          background: #272727; /* color of the tracking area */
-          border-radius: 4px;
-        }
-        .custom-scroll::-webkit-scrollbar-thumb {
-          background-color: #555; /* color of the scroll thumb */
-          border-radius: 4px; /* roundness of the scroll thumb */
-          border: 2px solid #272727; /* creates padding around scroll thumb */
-        }
-        .custom-scroll::-webkit-scrollbar-thumb:hover {
-          background-color: #777; /* color of the scroll thumb on hover */
-        }
+        .custom-scroll::-webkit-scrollbar { width: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #272727; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background-color: #555; border-radius: 4px; border: 2px solid #272727; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background-color: #777; }
       `}</style>
 
       <button
@@ -187,9 +168,8 @@ export default function NotificationBell() {
 
       {showPanel && (
         <div
-          className={`absolute right-0 mt-2 w-80 bg-[#111] border border-[#333] text-white rounded-xl p-4 shadow-xl z-50 backdrop-blur transition-opacity duration-300 ${
-            isFadingOut ? "fade-out" : ""
-          }`}
+          ref={panelRef}
+          className={`absolute right-0 mt-2 w-80 bg-[#111] border border-[#333] text-white rounded-xl p-4 shadow-xl z-50 backdrop-blur transition-opacity duration-300 ${isFadingOut ? "fade-out" : ""}`}
         >
           <h3 className="text-lg font-bold mb-2">Notifications</h3>
           <div className="space-y-3 max-h-64 overflow-y-auto custom-scroll">
@@ -199,34 +179,58 @@ export default function NotificationBell() {
               </p>
             )}
 
-            {notifications.map((note) => {
-              const fromId = getFromUserId(note);
-              const name = getDisplayName(note);
-
-              return (
-                <div
-                  key={note.id}
-                  className={`p-3 rounded-lg transition-all duration-200 cursor-pointer transform hover:scale-[1.015] hover:border-[#12f7ff] ${
-                    note.is_read
-                      ? "bg-[#1e1e1e] text-[#aaa]"
-                      : "bg-[#272727] text-white border border-[#9500FF]"
-                  }`}
-                  onClick={() => handleCardClick(note)}
-                >
-                  <p className="text-sm italic">
-                    <span className="font-semibold text-white italic">
-                      {name}
-                    </span>{" "}
-                    {/* Display message based on type for better clarity */}
-                    {note.type === 'friend_request' ? 'sent you a friend request!' : note.message}
-                  </p>
-
-                  <p className="text-xs text-[#666] mt-1">
-                    {new Date(note.created_at).toLocaleString()}
-                  </p>
+            {notifications.map((note) => (
+              <div
+                key={note.id}
+                className={`p-3 rounded-lg transition-all duration-200 cursor-pointer hover:scale-[1.015] ${
+                  note.is_read
+                    ? "bg-[#1e1e1e] text-[#aaa]"
+                    : "bg-[#272727] text-white border border-[#9500FF]"
+                }`}
+                onClick={() => handleCardClick(note)}
+              >
+                {/* PROFILE IMAGE & NAME */}
+                <div className="flex items-center mb-1">
+                  <Image
+                    src={note.from_user?.profileImage || '/default-avatar.png'}
+                    alt="Sender"
+                    width={32}
+                    height={32}
+                    className="rounded-full mr-2 object-cover"
+                  />
+                  <span className="font-semibold">{note.from_user?.displayName || "Someone"}</span>
+                  {/* MARK AS READ BUTTON */}
+                  {!note.is_read && (
+                    <button
+                      onClick={e => { e.stopPropagation(); markAsRead(note.id); }}
+                      className="ml-auto px-2 py-1 bg-[#9500FF] text-white text-xs rounded-full hover:bg-[#7a00d0]"
+                      title="Mark as Read"
+                    >✔</button>
+                  )}
                 </div>
-              );
-            })}
+                <p className="text-sm italic">
+                  {note.type === 'friend_request'
+                    ? 'sent you a friend request!'
+                    : note.message}
+                </p>
+                <p className="text-xs text-[#666] mt-1">
+                  {new Date(note.created_at).toLocaleString()}
+                </p>
+                {/* ACCEPT/DENY BUTTONS */}
+                {note.type === 'friend_request' && !note.is_read && (
+                  <div className="flex space-x-2 mt-2">
+                    <button
+                      onClick={e => handleAcceptFriendRequest(e, note)}
+                      className="px-2 py-1 bg-[#22C55E] text-white text-xs rounded-lg hover:bg-[#1DA54D]"
+                    >Accept</button>
+                    <button
+                      onClick={e => handleDenyFriendRequest(e, note)}
+                      className="px-2 py-1 bg-[#EF4444] text-white text-xs rounded-lg hover:bg-[#CC3C3C]"
+                    >Deny</button>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
