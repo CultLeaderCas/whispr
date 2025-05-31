@@ -143,7 +143,6 @@ export default function AddFriendsDropdown() {
           type: 'friend_request',
           message: 'sent you a friend request!',
           is_read: false,
-          related_entity_id: null,
         });
 
       if (insertError) throw insertError;
