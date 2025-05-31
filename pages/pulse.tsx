@@ -32,19 +32,19 @@ export default function PulseLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [nodes, setNodes] = useState<any[]>([]);
 
-// Simulate fetching nodes from database
-useEffect(() => {
-  const fetchNodes = async () => {
-    const { data, error } = await supabase.from('nodes').select('*');
-    if (error) {
-      console.error('Error fetching nodes:', error.message);
-    } else {
-      setNodes(data || []);
-    }
-  };
+  // Simulate fetching nodes from database
+  useEffect(() => {
+    const fetchNodes = async () => {
+      const { data, error } = await supabase.from('nodes').select('*');
+      if (error) {
+        console.error('Error fetching nodes:', error.message);
+      } else {
+        setNodes(data || []);
+      }
+    };
 
-  fetchNodes();
-}, []);
+    fetchNodes();
+  }, []);
 
   // --- Fetch Current User's Profile for Right Panel ---
   useEffect(() => {
@@ -232,154 +232,154 @@ useEffect(() => {
 
       <div className="absolute inset-0 z-0">{stars}</div>
 
-    <div className="relative z-10 max-w-[1440px] mx-auto pt-4 flex min-h-screen">
-{/* Left Panel – Nodes */}
-<div className="w-[220px] bg-[#111] border-r border-[#333] p-4 space-y-4 overflow-y-auto relative">
-  {/* Title and Create Button Row */}
-  <div className="flex items-center justify-between mb-3">
-    <h3 className="text-lg font-bold">Nodes</h3>
-    <button
-      onClick={() => router.push('/nodes/create')}
-      className="text-xs text-black font-bold bg-[#12f7ff] hover:bg-[#0fd0e0] transition px-2 py-1 rounded-lg shadow flex items-center gap-1"
-      title="Create Node"
-    >
-      <span>Create</span> <span className="text-lg">➕</span>
-    </button>
-  </div>
-
-  {/* Dynamic Node List */}
-  <div className="space-y-3">
-    {Array.isArray(nodes) && nodes.length === 0 ? (
-      <p className="text-sm text-[#888] italic">No nodes yet.</p>
-    ) : (
-      nodes.map((node: any) => (
-        <div
-          key={node.id}
-          className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer"
-          onClick={() => router.push(`/nodes/${node.id}`)}
-        >
-          <Image
-            src={node.icon || '/default-node.png'}
-            className="w-10 h-10 rounded-full border border-[#9500FF]"
-            alt="Node Icon"
-            width={40}
-            height={40}
-          />
-          <span className="text-sm font-bold truncate">{node.name}</span>
-        </div>
-      ))
-    )}
-  </div>
-</div>
-
-
-      {/* Center Panel – Friends */}
-      <div className="flex-1 p-6 overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">Friends</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {friends.map((friend) => (
-            <div
-              key={friend.id}
-              className="bg-[#1e1e1e] p-4 rounded-2xl shadow-lg hover:bg-[#272727] transition cursor-pointer"
-              onClick={() => handleFriendCardClick(friend.id)}
+      <div className="relative z-10 max-w-[1440px] mx-auto pt-4 flex min-h-screen">
+        {/* Left Panel – Nodes */}
+        <div className="w-[220px] bg-[#111] border-r border-[#333] p-4 space-y-4 overflow-y-auto relative">
+          {/* Title and Create Button Row */}
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-bold">Nodes</h3>
+            <button
+              onClick={() => router.push('/nodes/create')}
+              className="text-xs text-black font-bold bg-[#12f7ff] hover:bg-[#0fd0e0] transition px-2 py-1 rounded-lg shadow flex items-center gap-1"
+              title="Create Node"
             >
-              <div
-                className={`relative w-16 h-16 rounded-full overflow-hidden mx-auto mb-2 transition-shadow duration-200 ease-in-out`}
-                style={{
-                  boxShadow: statusGlowStyles[(friend.online_status as keyof typeof statusGlowStyles) || 'offline'], // Re-added status glow
-                  border: `2px solid ${friend.themeColor || '#12f7ff'}` // Re-added theme color border
-                }}
-              >
-                <Image
-                  src={friend.profileImage || '/default-avatar.png'}
-                  alt={friend.displayName || 'Friend'}
-                  width={64}
-                  height={64}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="text-center">
-                <p className="font-bold">{friend.displayName || 'Unknown'}</p>
-                <p className="text-sm text-[#aaa]">@{friend.username}</p>
-                {friend.public_status && (
-                  <p className="text-xs italic text-[#9500FF] mt-1 truncate">
-                    {friend.public_status}
-                  </p>
-                )}
-                <p className="text-xs italic text-[#555] mt-1">💫 Friend</p>
-              </div>
-            </div>
-          ))}
-        </div>
-        {children}
-      </div>
-
-      {/* Right Panel – Current User Profile / Add Friends / Notifications / Music */}
-      <div className="w-[260px] bg-[#111] border-l border-[#333] p-4 sticky top-0 h-screen flex flex-col items-center">
-        {currentUsersProfile ? (
-          <>
-            <Image
-              src={currentUsersProfile.profileImage || '/default-avatar.png'}
-              alt={currentUsersProfile.displayName || 'Your Profile'}
-              width={80}
-              height={80}
-              className="w-20 h-20 rounded-full border-2 object-cover mx-auto mb-3"
-              style={{ borderColor: currentUsersProfile.themeColor || '#12f7ff' }} // Re-added theme color border
-            />
-            <p className="font-bold text-lg text-center">{currentUsersProfile.displayName || 'Your Name'}</p>
-            <p className="text-sm text-[#aaa] mt-1 text-center">@{currentUsersProfile.username || 'your_username'}</p>
-            <a
-              href="/profile"
-              className="mt-4 px-4 py-2 bg-[#fe019a] text-white font-bold text-sm rounded-xl hover:bg-[#d0017e] transition shadow-md"
-            >
-              View/Edit Profile
-            </a>
-          </>
-        ) : (
-          <div className="text-center text-[#888] my-4">
-            <p>Loading profile...</p>
+              <span>Create</span> <span className="text-lg">➕</span>
+            </button>
           </div>
-        )}
 
-        <div className="mt-6 w-full flex justify-center items-center space-x-2">
-          <AddFriendsDropdown />
-          <NotificationBell />
-        </div>
-
-        <div className="mt-6 pt-6 border-t border-[#333] w-full text-center">
-          <h4 className="text-sm font-bold mb-2">Now Playing</h4>
-          <div className="bg-[#1a1a1a] p-3 rounded-xl text-sm text-[#ccc]">
-            🎵 No song playing<br />
-            {/* Display current user's online status from right panel profile if available */}
-            {currentUsersProfile?.online_status ? (
-              <span
-                className={`capitalize ${
-                  currentUsersProfile.online_status === 'online'
-                    ? 'text-green-400'
-                    : currentUsersProfile.online_status === 'dnd'
-                    ? 'text-red-400'
-                    : currentUsersProfile.online_status === 'away'
-                    ? 'text-yellow-400'
-                    : 'text-gray-400'
-                }`}
-              >
-                {currentUsersProfile.online_status === 'online' && '🍏 Online'}
-                {currentUsersProfile.online_status === 'dnd' && '🍒 Do Not Disturb'}
-                {currentUsersProfile.online_status === 'away' && '🌙 Away'}
-                {currentUsersProfile.online_status === 'offline' && '👾 Offline'}
-              </span>
+          {/* Dynamic Node List */}
+          <div className="space-y-3">
+            {Array.isArray(nodes) && nodes.length === 0 ? (
+              <p className="text-sm text-[#888] italic">No nodes yet.</p>
             ) : (
-              <span className="text-gray-400">👾 Offline</span>
+              nodes.map((node: any) => (
+                <div
+                  key={node.id}
+                  className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer"
+                  onClick={() => router.push(`/nodes/${node.id}`)}
+                >
+                  <Image
+                    src={node.icon || '/default-node.png'}
+                    className="w-10 h-10 rounded-full border border-[#9500FF]"
+                    alt="Node Icon"
+                    width={40}
+                    height={40}
+                  />
+                  <span className="text-sm font-bold truncate">{node.name}</span>
+                </div>
+              ))
             )}
           </div>
         </div>
-      </div>
-    </div>
 
-    {/* MyProfileCorner */}
-    <MyProfileCorner />
-  </div>
-);
+
+        {/* Center Panel – Friends */}
+        <div className="flex-1 p-6 overflow-y-auto">
+          <h2 className="text-xl font-bold mb-4">Friends</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {friends.map((friend) => (
+              <div
+                key={friend.id}
+                className="bg-[#1e1e1e] p-4 rounded-2xl shadow-lg hover:bg-[#272727] transition cursor-pointer"
+                onClick={() => handleFriendCardClick(friend.id)}
+              >
+                <div
+                  className={`relative w-16 h-16 rounded-full overflow-hidden mx-auto mb-2 transition-shadow duration-200 ease-in-out`}
+                  style={{
+                    boxShadow: statusGlowStyles[(friend.online_status as keyof typeof statusGlowStyles) || 'offline'], // Re-added status glow
+                    border: `2px solid ${friend.themeColor || '#12f7ff'}` // Re-added theme color border
+                  }}
+                >
+                  <Image
+                    src={friend.profileImage || '/default-avatar.png'}
+                    alt={friend.displayName || 'Friend'}
+                    width={64}
+                    height={64}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="text-center">
+                  <p className="font-bold">{friend.displayName || 'Unknown'}</p>
+                  <p className="text-sm text-[#aaa]">@{friend.username}</p>
+                  {friend.public_status && (
+                    <p className="text-xs italic text-[#9500FF] mt-1 truncate">
+                      {friend.public_status}
+                    </p>
+                  )}
+                  <p className="text-xs italic text-[#555] mt-1">💫 Friend</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {children}
+        </div>
+
+        {/* Right Panel – Current User Profile / Add Friends / Notifications / Music */}
+        <div className="w-[260px] bg-[#111] border-l border-[#333] p-4 sticky top-0 h-screen flex flex-col items-center">
+          {currentUsersProfile ? (
+            <>
+              <Image
+                src={currentUsersProfile.profileImage || '/default-avatar.png'}
+                alt={currentUsersProfile.displayName || 'Your Profile'}
+                width={80}
+                height={80}
+                className="w-20 h-20 rounded-full border-2 object-cover mx-auto mb-3"
+                style={{ borderColor: currentUsersProfile.themeColor || '#12f7ff' }} // Re-added theme color border
+              />
+              <p className="font-bold text-lg text-center">{currentUsersProfile.displayName || 'Your Name'}</p>
+              <p className="text-sm text-[#aaa] mt-1 text-center">@{currentUsersProfile.username || 'your_username'}</p>
+              <a
+                href="/profile"
+                className="mt-4 px-4 py-2 bg-[#fe019a] text-white font-bold text-sm rounded-xl hover:bg-[#d0017e] transition shadow-md"
+              >
+                View/Edit Profile
+              </a>
+            </>
+          ) : (
+            <div className="text-center text-[#888] my-4">
+              <p>Loading profile...</p>
+            </div>
+          )}
+
+          <div className="mt-6 w-full flex justify-center items-center space-x-2">
+            <AddFriendsDropdown />
+            <NotificationBell />
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-[#333] w-full text-center">
+            <h4 className="text-sm font-bold mb-2">Now Playing</h4>
+            <div className="bg-[#1a1a1a] p-3 rounded-xl text-sm text-[#ccc]">
+              🎵 No song playing<br />
+              {/* Display current user's online status from right panel profile if available */}
+              {currentUsersProfile?.online_status ? (
+                <span
+                  className={`capitalize ${
+                    currentUsersProfile.online_status === 'online'
+                      ? 'text-green-400'
+                      : currentUsersProfile.online_status === 'dnd'
+                        ? 'text-red-400'
+                        : currentUsersProfile.online_status === 'away'
+                          ? 'text-yellow-400'
+                          : 'text-gray-400'
+                  }`}
+                >
+                  {currentUsersProfile.online_status === 'online' && '🍏 Online'}
+                  {currentUsersProfile.online_status === 'dnd' && '🍒 Do Not Disturb'}
+                  {currentUsersProfile.online_status === 'away' && '🌙 Away'}
+                  {currentUsersProfile.online_status === 'offline' && '👾 Offline'}
+                </span>
+              ) : (
+                <span className="text-gray-400">👾 Offline</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* MyProfileCorner */}
+      <MyProfileCorner />
+    </div>
+  );
 }
 
 
@@ -720,7 +720,7 @@ function MyProfileCorner() {
               placeholder="Tell us about yourself..."
               className="w-full p-2 text-sm bg-[#1e1e1e] border border-[#222] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#9500FF] resize-y"
             ></textarea>
-            <p className="text-right text-xs text-[#666] mt-1">{currentBio.length}/150</p>
+            <p className="text-right text-xs text-[#666] mt-1">{currentBio.length}/150}</p>
           </div>
 
           {/* Full Profile Link */}
@@ -830,6 +830,84 @@ function NotificationBell() {
     }
   };
 
+  // --- THESE FUNCTIONS MUST BE HERE (Inside NotificationBell component) ---
+  const handleAcceptFriendRequest = async (e: React.MouseEvent, note: any) => {
+    e.stopPropagation();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('No user logged in to accept friend request.');
+      return;
+    }
+
+    const requesterId = note.from_user?.id ?? note.from_user_id;
+    const currentUserId = user.id;
+
+    try {
+      const { data: existingFriendship, error: checkError } = await supabase
+        .from('friends')
+        .select('*')
+        .or(`and(user_id.eq.${currentUserId},friend_id.eq.${requesterId}),and(user_id.eq.${requesterId},friend_id.eq.${currentUserId})`);
+
+      if (checkError) throw checkError;
+
+      if (existingFriendship && existingFriendship.length > 0) {
+        console.warn('Friendship already exists or is pending. Deleting notification.');
+      } else {
+        const { error: insertError1 } = await supabase
+          .from('friends')
+          .insert({
+            user_id: currentUserId,
+            friend_id: requesterId,
+          });
+        if (insertError1) throw insertError1;
+
+        const { error: insertError2 } = await supabase
+          .from('friends')
+          .insert({
+            user_id: requesterId,
+            friend_id: currentUserId,
+          });
+        if (insertError2) throw insertError2;
+        console.log('Friend request accepted and friendship established!');
+      }
+
+      const { error: deleteNotificationError } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', note.id);
+      if (deleteNotificationError) console.error('Error deleting notification after acceptance:', deleteNotificationError.message);
+
+      setNotifications((prev) => prev.filter((n) => n.id !== note.id));
+      alert(`You are now friends with ${note.from_user?.displayName || 'Someone'}!`);
+
+    } catch (error: any) {
+      console.error("Error accepting friend request:", error.message);
+      alert(`Failed to accept friend request: ${error.message}`);
+    }
+  };
+
+  const handleDenyFriendRequest = async (e: React.MouseEvent, note: any) => {
+    e.stopPropagation();
+
+    try {
+      const { error: deleteNotificationError } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', note.id);
+
+      if (deleteNotificationError) throw deleteNotificationError;
+
+      console.log('Friend request denied.');
+      setNotifications((prev) => prev.filter((n) => n.id !== note.id));
+      alert(`Friend request from ${note.from_user?.displayName || 'Someone'} denied.`);
+    } catch (error: any) {
+      console.error("Error denying friend request:", error.message);
+      alert(`Failed to deny friend request: ${error.message}`);
+    }
+  };
+  // --- END OF FUNCTIONS THAT MUST BE HERE ---
+
   const handleCardClick = async (note: any) => {
     const fromId = note.from_user?.id ?? note.from_user_id; // Prefer linked user ID if available
     await markAsRead(note.id); // Mark as read first
@@ -915,38 +993,56 @@ function NotificationBell() {
               {notifications.map((note) => (
                 <div
                   key={note.id}
-                  className={`flex items-start p-3 rounded-lg mb-2 cursor-pointer transition ${
+                  className={`flex flex-col p-3 rounded-lg mb-2 cursor-pointer transition ${
                     note.is_read ? 'bg-[#1a1a1a] text-[#aaa]' : 'bg-[#2a2a2a] hover:bg-[#3a3a3a]'
                   }`}
                   onClick={() => handleCardClick(note)}
                 >
-                  <Image
-                    src={note.from_user?.profileImage || '/default-avatar.png'}
-                    alt="Sender"
-                    width={32}
-                    height={32}
-                    className="rounded-full mr-3 flex-shrink-0 object-cover"
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold leading-tight">
-                      {note.from_user?.displayName || 'Someone'}{' '}
-                      <span className="font-normal text-[#bbb]">{note.message}</span>
-                    </p>
-                    <p className="text-xs text-[#888] mt-1">
-                      {new Date(note.created_at).toLocaleString()}
-                    </p>
+                  <div className="flex items-start">
+                    <Image
+                      src={note.from_user?.profileImage || '/default-avatar.png'}
+                      alt="Sender"
+                      width={32}
+                      height={32}
+                      className="rounded-full mr-3 flex-shrink-0 object-cover"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold leading-tight">
+                        {note.from_user?.displayName || 'Someone'}{' '}
+                        <span className="font-normal text-[#bbb]">{note.message}</span>
+                      </p>
+                      <p className="text-xs text-[#888] mt-1">
+                        {new Date(note.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    {!note.is_read && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent card click from triggering
+                          markAsRead(note.id);
+                        }}
+                        className="ml-2 px-2 py-1 bg-[#9500FF] text-white text-xs rounded-full hover:bg-[#7a00d0] transition flex-shrink-0"
+                        title="Mark as Read"
+                      >
+                        ✔
+                      </button>
+                    )}
                   </div>
-                  {!note.is_read && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevent card click from triggering
-                        markAsRead(note.id);
-                      }}
-                      className="ml-2 px-2 py-1 bg-[#9500FF] text-white text-xs rounded-full hover:bg-[#7a00d0] transition flex-shrink-0"
-                      title="Mark as Read"
-                    >
-                      ✔
-                    </button>
+                  {note.type === 'friend_request' && !note.is_read && (
+                    <div className="mt-2 flex space-x-2 self-end"> {/* Align buttons to the right */}
+                      <button
+                        onClick={(e) => handleAcceptFriendRequest(e, note)}
+                        className="px-2 py-1 bg-[#22C55E] text-white text-xs rounded-lg hover:bg-[#1DA54D] transition"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        onClick={(e) => handleDenyFriendRequest(e, note)}
+                        className="px-2 py-1 bg-[#EF4444] text-white text-xs rounded-lg hover:bg-[#CC3C3C] transition"
+                      >
+                        Deny
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -986,54 +1082,54 @@ function AddFriendsDropdown() {
     };
   }, [showDropdown]);
 
-const handleSearch = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setSearchResult(null);
-  setMessage('');
-  
-  const identifier = friendIdentifier.trim();
-  if (!identifier) {
-    setMessage('Please enter a username or ID.');
-    return;
-  }
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchResult(null);
+    setMessage('');
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    setMessage('You must be logged in to search.');
-    return;
-  }
-
-  // Prevent searching for self
-  if (identifier === user.id || identifier.toLowerCase() === user.user_metadata?.username?.toLowerCase()) {
-    setMessage('You cannot add yourself, silly goose.');
-    return;
-  }
-
-  let profileData = null;
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-  try {
-    if (uuidRegex.test(identifier)) {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', identifier).single();
-      if (error) throw error;
-      profileData = data;
-    } else {
-      const { data, error } = await supabase.from('profiles').select('*').eq('username', identifier).single();
-      if (error) throw error;
-      profileData = data;
-    }
-
-    if (!profileData) {
-      setMessage('User not found.');
+    const identifier = friendIdentifier.trim();
+    if (!identifier) {
+      setMessage('Please enter a username or ID.');
       return;
     }
 
-    setSearchResult(profileData);
-  } catch (error: any) {
-    console.error("Search error:", error.message);
-    setMessage('Error searching for user.');
-  }
-};
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setMessage('You must be logged in to search.');
+      return;
+    }
+
+    // Prevent searching for self
+    if (identifier === user.id || identifier.toLowerCase() === user.user_metadata?.username?.toLowerCase()) {
+      setMessage('You cannot add yourself, silly goose.');
+      return;
+    }
+
+    let profileData = null;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    try {
+      if (uuidRegex.test(identifier)) {
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', identifier).single();
+        if (error) throw error;
+        profileData = data;
+      } else {
+        const { data, error } = await supabase.from('profiles').select('*').eq('username', identifier).single();
+        if (error) throw error;
+        profileData = data;
+      }
+
+      if (!profileData) {
+        setMessage('User not found.');
+        return;
+      }
+
+      setSearchResult(profileData);
+    } catch (error: any) {
+      console.error("Search error:", error.message);
+      setMessage('Error searching for user.');
+    }
+  };
 
 
   const handleSendFriendRequest = async () => {

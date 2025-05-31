@@ -159,8 +159,8 @@ export default function NodeViewPage() {
         <div className="flex-1 flex">
           {/* Channel List */}
           <div className="w-[200px] border-r border-[#333] p-4">
-            <h2 className="text-sm font-bold uppercase text-[#aaa] mb-2"># Channels</h2>
-            <p className="text-cyan-400 hover:underline cursor-pointer"># general</p>
+            <h2 className="text-sm font-bold uppercase text-[#aaa] mb-2">Channels</h2>
+            <p className="text-cyan-400 hover:underline cursor-pointer">-general</p>
           </div>
 
           {/* Chat Area */}
