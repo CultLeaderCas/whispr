@@ -1082,10 +1082,23 @@ function AddFriendsDropdown() {
     };
   }, [showDropdown]);
 
+<<<<<<< HEAD
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     setSearchResult(null);
     setMessage('');
+=======
+const handleSearch = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setSearchResult(null);
+  setMessage('');
+
+  const identifier = friendIdentifier.trim();
+  if (!identifier) {
+    setMessage('Please enter a username or ID.');
+    return;
+  }
+>>>>>>> 29c5e9b502532700736d519fa8073f464cbef174
 
     const identifier = friendIdentifier.trim();
     if (!identifier) {
@@ -1153,6 +1166,7 @@ function AddFriendsDropdown() {
         .from('friends')
         .select('*')
         .or(`(user_id.eq.${currentUser.user.id},friend_id.eq.${searchResult.id}),(user_id.eq.${searchResult.id},friend_id.eq.${currentUser.user.id})`);
+.or(`and(user_id.eq.${currentUser.user.id},friend_id.eq.${searchResult.id}),and(user_id.eq.${searchResult.id},friend_id.eq.${currentUser.user.id})`);
 
       if (friendshipError) throw friendshipError;
 
@@ -1266,4 +1280,5 @@ function AddFriendsDropdown() {
       )}
     </div>
   );
+}
 }
