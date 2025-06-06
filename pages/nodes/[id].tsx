@@ -6,8 +6,8 @@ import { supabase } from '@/lib/supabaseClient';
 import NodeHeader from '@/components/NodeHeader';
 import NodeSidebar from '@/components/NodeSidebar';
 import ChannelList from '@/components/ChannelList';
-import MemberList from '@/components/MemberList';
-import MiddleChat from '@/components/MiddleChat';
+//import MemberList from '@/components/MemberList';
+//import MiddleChat from '@/components/MiddleChat';
 
 export interface NodeRow {
   id: string;
@@ -157,18 +157,21 @@ export default function NodeViewPage() {
   return (
     <div className="flex min-h-screen bg-black text-white font-sans">
       <NodeSidebar
-        userProfile={userProfile}
-        userNodes={userNodes}
-        currentNodeId={typeof id === 'string' ? id : ''}
-        onInviteToNode={() => {/* Invite logic here */}}
-        // Add other props as needed
-      />
+        nodeId={typeof id === 'string' ? id : ''}
+        channels={channels.map(c => ({ id: c.id, name: c.name }))}
+        voiceChannels={voiceChannels.map(vc => ({ id: vc.id, name: vc.name }))} onCreateChannel={function (): void {
+          throw new Error('Function not implemented.');
+        } } onCreateVC={function (): void {
+          throw new Error('Function not implemented.');
+        } }  // Optionally add onCreateChannel and onCreateVC handlers
+/>
+
       <div className="flex-1 flex flex-col">
         {node && (
           <NodeHeader nodeId={node.id} nodeName={node.name} nodeIcon={node.icon ?? null} />
         )}
         <div className="flex flex-1">
-          <ChannelList
+          {/*<ChannelList
             channels={channels}
             voiceChannels={voiceChannels}
             currentChannelId={currentChannel?.id || ''}
@@ -179,7 +182,7 @@ export default function NodeViewPage() {
             userProfile={userProfile}
             members={members}
           />
-          <MemberList members={members} />
+          {/*<MemberList members={members} />*/}
         </div>
       </div>
     </div>
