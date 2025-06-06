@@ -3,193 +3,183 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '@/lib/supabaseClient';
-import Image from 'next/image';
-import Link from 'next/link';
 import NodeHeader from '@/components/NodeHeader';
+import NodeSidebar from '@/components/NodeSidebar';
+import ChannelList from '@/components/ChannelList';
+import MemberList from '@/components/MemberList';
+import MiddleChat from '@/components/MiddleChat';
 
-interface Node {
+export interface NodeRow {
   id: string;
   name: string;
   icon?: string;
+  description?: string;
 }
 
-interface Member {
+export interface ChannelRow {
+  id: string;
+  node_id: string;
+  name: string;
+  type: 'text' | 'voice';
+  position: number;
+}
+
+interface MemberRow {
+  id: string;
+  node_id: string;
+  user_id: string;
+  joined_at: string;
+  profiles: {
+    id: string;
+    username: string;
+    displayName: string;
+    profileImage?: string;
+    online_status?: 'online' | 'away' | 'dnd' | 'offline';
+    chat_bubble_color?: string;
+  };
+}
+
+
+export interface Profile {
   id: string;
   username: string;
-  profileImage?: string;
+  displayName: string;
+  profileImage: string;
+  themeColor?: string;
   online_status?: string;
+  chat_bubble_color?: string;
 }
 
 export default function NodeViewPage() {
   const router = useRouter();
   const { id } = router.query;
 
-  const [node, setNode] = useState<Node | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [userProfile, setUserProfile] = useState<Member | null>(null);
-  const [userNodes, setUserNodes] = useState<Node[]>([]);
+  const [node, setNode] = useState<NodeRow | null>(null);
+  const [channels, setChannels] = useState<ChannelRow[]>([]);
+  const [voiceChannels, setVoiceChannels] = useState<ChannelRow[]>([]);
+  const [members, setMembers] = useState<MemberRow[]>([]);
+  const [userProfile, setUserProfile] = useState<Profile | null>(null);
+  const [userNodes, setUserNodes] = useState<NodeRow[]>([]);
+  const [currentChannel, setCurrentChannel] = useState<ChannelRow | null>(null);
 
+  // Fetch node details
   useEffect(() => {
+    if (!id) return;
     const fetchNode = async () => {
-      if (!id || typeof id !== 'string') return;
-
-      const { data, error } = await supabase.from('nodes').select('*').eq('id', id).single();
-      if (data) setNode(data);
+      const { data, error } = await supabase
+        .from('nodes')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) {
+        setNode(null);
+      } else {
+        setNode(data as NodeRow);
+      }
     };
-
     fetchNode();
   }, [id]);
 
+  // Fetch channels for the node
   useEffect(() => {
-    const fetchMembers = async () => {
-      if (!id || typeof id !== 'string') return;
-
+    if (!id) return;
+    const fetchChannels = async () => {
       const { data, error } = await supabase
-        .from('node_members')
-        .select('user_id, profiles (id, username, profileImage, online_status)')
-        .eq('node_id', id);
+        .from('channels')
+        .select('*')
+        .eq('node_id', id)
+        .order('position', { ascending: true });
 
-      if (data) {
-        const cleaned = data.map((m: any) => m.profiles);
-        setMembers(cleaned);
+      if (!error && data) {
+        setChannels(data.filter((ch: ChannelRow) => ch.type === 'text'));
+        setVoiceChannels(data.filter((ch: ChannelRow) => ch.type === 'voice'));
+        // Set the first text channel as default selected
+        setCurrentChannel(data.find((ch: ChannelRow) => ch.type === 'text') || null);
       }
     };
+    fetchChannels();
+  }, [id]);
 
+  // Fetch members for the node
+  useEffect(() => {
+    if (!id) return;
+    const fetchMembers = async () => {
+      const { data, error } = await supabase
+        .from('node_members')
+        .select('*, profile:profile_id (id, username, displayName, profileImage, themeColor, online_status, chat_bubble_color)')
+        .eq('node_id', id);
+
+      if (!error && data) {
+        setMembers(data as MemberRow[]);
+      }
+    };
     fetchMembers();
   }, [id]);
 
+  // Fetch current user profile
   useEffect(() => {
-    const fetchProfileAndNodes = async () => {
+    const fetchUserProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      const { data: profile } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, profileImage, online_status')
+        .select('*')
         .eq('id', user.id)
         .single();
-
-      if (profile) setUserProfile(profile);
-
-      const { data: memberNodes } = await supabase
-        .from('node_members')
-        .select('node_id, nodes(id, name, icon)')
-        .eq('user_id', user.id);
-
-      if (memberNodes) {
-        const flattened = memberNodes.map((n: any) => n.nodes);
-        setUserNodes(flattened);
+      if (!error && data) {
+        setUserProfile(data as Profile);
       }
     };
-
-    fetchProfileAndNodes();
+    fetchUserProfile();
   }, []);
 
-  const statusColors: any = {
-    online: 'border-[#22C55E]',
-    away: 'border-[#F59E0B]',
-    dnd: 'border-[#EF4444]',
-    offline: 'border-[#6B7280]'
+  // Fetch nodes user is a member of
+  useEffect(() => {
+    const fetchUserNodes = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('node_members')
+        .select('nodes:node_id (id, name, icon)')
+        .eq('user_id', user.id);
+      if (!error && data) {
+        setUserNodes(data.map((row: any) => row.nodes as NodeRow));
+      }
+    };
+    fetchUserNodes();
+  }, []);
+
+  // Handler for selecting a channel
+  const handleSelectChannel = (channel: ChannelRow) => {
+    setCurrentChannel(channel);
   };
 
   return (
     <div className="flex min-h-screen bg-black text-white font-sans">
-      {/* Left Panel – Node List + My Profile */}
-      <div className="w-[220px] bg-[#111] border-r border-[#333] p-4 flex flex-col justify-between">
-        <div>
-          <Link href="/pulse">
-            <button className="w-full mb-4 px-3 py-2 rounded-xl bg-[#12f7ff] text-black font-bold text-sm hover:bg-[#0fd0e0] transition shadow-md">
-              Back to Pulse
-            </button>
-          </Link>
-
-          <h3 className="text-lg font-bold mb-2">Nodes</h3>
-          <div className="space-y-3">
-            {userNodes.map((node) => (
-              <div
-                key={node.id}
-                onClick={() => router.push(`/nodes/${node.id}`)}
-                className="flex items-center gap-3 p-2 hover:bg-[#222] rounded-xl transition cursor-pointer"
-              >
-                <Image
-                  src={node.icon || '/default-node.png'}
-                  alt="Node Icon"
-                  width={40}
-                  height={40}
-                  className="w-10 h-10 rounded-full border border-[#9500FF]"
-                />
-                <span className="text-sm font-bold truncate">{node.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Profile Corner */}
-        {userProfile && (
-          <div className="mt-4 border-t border-[#333] pt-4">
-            <div className="flex items-center gap-3 cursor-pointer">
-              <Image
-                src={userProfile.profileImage || '/default-avatar.png'}
-                alt="Profile"
-                width={40}
-                height={40}
-                className={`w-10 h-10 rounded-full object-cover border-2 ${statusColors[userProfile.online_status || 'offline']}`}
-              />
-              <div>
-                <p className="font-bold text-sm">{userProfile.username}</p>
-                <Link href="/profile">
-                  <p className="text-xs text-[#aaa] underline">Edit Profile</p>
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Main Content */}
+      <NodeSidebar
+        userProfile={userProfile}
+        userNodes={userNodes}
+        currentNodeId={typeof id === 'string' ? id : ''}
+        onInviteToNode={() => {/* Invite logic here */}}
+        // Add other props as needed
+      />
       <div className="flex-1 flex flex-col">
-{node && (
-  <NodeHeader
-    nodeId={node.id}
-    nodeName={node.name}
-    nodeIcon={node.icon ?? null}
-  />
-)}
-
-        <div className="flex-1 flex">
-          {/* Channel List */}
-          <div className="w-[200px] border-r border-[#333] p-4">
-            <h2 className="text-sm font-bold uppercase text-[#aaa] mb-2">Channels</h2>
-            <p className="text-cyan-400 hover:underline cursor-pointer">-general</p>
-          </div>
-
-          {/* Chat Area */}
-          <div className="flex-1 p-4">
-            <p className="text-[#aaa] italic">Welcome to the node!</p>
-          </div>
-
-          {/* Member List */}
-          <div className="w-[200px] border-l border-[#333] p-4">
-            <h2 className="text-sm font-bold uppercase text-[#aaa] mb-2">Members</h2>
-            {members.length === 0 ? (
-              <p className="text-sm italic text-[#555]">Coming soon...</p>
-            ) : (
-              <ul className="space-y-2">
-                {members.map((member) => (
-                  <li key={member.id} className="flex items-center gap-2">
-                    <Image
-                      src={member.profileImage || '/default-avatar.png'}
-                      alt="User"
-                      width={28}
-                      height={28}
-                      className={`w-7 h-7 rounded-full object-cover border-2 ${statusColors[member.online_status || 'offline']}`}
-                    />
-                    <span className="text-sm">{member.username}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+        {node && (
+          <NodeHeader nodeId={node.id} nodeName={node.name} nodeIcon={node.icon ?? null} />
+        )}
+        <div className="flex flex-1">
+          <ChannelList
+            channels={channels}
+            voiceChannels={voiceChannels}
+            currentChannelId={currentChannel?.id || ''}
+            onSelectChannel={handleSelectChannel} members={[]}          />
+          <MiddleChat
+            node={node}
+            channel={currentChannel}
+            userProfile={userProfile}
+            members={members}
+          />
+          <MemberList members={members} />
         </div>
       </div>
     </div>
