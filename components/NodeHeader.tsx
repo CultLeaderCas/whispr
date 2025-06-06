@@ -1,4 +1,3 @@
-// components/NodeHeader.tsx
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
@@ -9,14 +8,12 @@ interface NodeHeaderProps {
   nodeIcon?: string | null;
 }
 
-// (Removed duplicate export and implementation)
-
-
 interface Member {
   id: string;
   displayName: string;
   profileImage: string;
   online_status: 'online' | 'away' | 'dnd' | 'offline';
+  themeColor?: string; // For chat bubble color background (future: set this per user)
 }
 
 export default function NodeHeader({ nodeId, nodeName, nodeIcon }: NodeHeaderProps) {
@@ -27,16 +24,13 @@ export default function NodeHeader({ nodeId, nodeName, nodeIcon }: NodeHeaderPro
     const fetchMembers = async () => {
       const { data, error } = await supabase
         .from('node_members')
-        .select('profile:profile_id(id, displayName, profileImage, online_status)')
+        .select('profile:profile_id(id, displayName, profileImage, online_status, themeColor)')
         .eq('node_id', nodeId);
 
       if (error) {
         console.error('Error fetching members:', error);
       } else {
-        const onlineMembers = data
-          .map((m: any) => m.profile)
-          .filter((m: Member) => m.online_status !== 'offline');
-        setMembers(onlineMembers);
+        setMembers(data.map((m: any) => m.profile));
       }
     };
 
@@ -52,6 +46,9 @@ export default function NodeHeader({ nodeId, nodeName, nodeIcon }: NodeHeaderPro
     fetchVCCount();
   }, [nodeId]);
 
+  // Calculate online members (not offline)
+  const onlineCount = members.filter((m) => m.online_status === 'online').length;
+
   return (
     <div className="flex items-center justify-between px-6 py-3 border-b border-[#333] bg-[#111]">
       <div className="flex items-center gap-3">
@@ -66,7 +63,11 @@ export default function NodeHeader({ nodeId, nodeName, nodeIcon }: NodeHeaderPro
       <div className="flex items-center gap-4">
         {/* VC Count */}
         <div className="text-sm text-[#12f7ff] font-semibold">🎧 {vcCount} in VC</div>
-
+        {/* Online Count */}
+        <div className="text-sm text-[#fe019a] font-semibold">
+          <span className="mr-1">🟢</span>
+          {onlineCount} Members online
+        </div>
         {/* Avatars */}
         <div className="flex -space-x-2">
           {members.slice(0, 5).map((member) => (
