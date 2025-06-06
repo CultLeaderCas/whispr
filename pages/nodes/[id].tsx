@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '@/lib/supabaseClient';
 import NodeHeader from '@/components/NodeHeader';
 import NodeSidebar from '@/components/NodeSidebar';
-import ChannelList from '@/components/ChannelList';
+//import ChannelList from '@/components/ChannelList';
 //import MemberList from '@/components/MemberList';
 //import MiddleChat from '@/components/MiddleChat';
 
