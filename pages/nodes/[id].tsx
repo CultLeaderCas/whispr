@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '@/lib/supabaseClient';
 import NodeHeader from '@/components/NodeHeader';
-import NodeSidebar from '@/components/NodeSidebar';
+import NodeSidebar, { ChannelRow, MemberRow } from '@/components/NodeSidebar';
 //import ChannelList from '@/components/ChannelList';
 //import MemberList from '@/components/MemberList';
 //import MiddleChat from '@/components/MiddleChat';
@@ -16,29 +16,13 @@ export interface NodeRow {
   description?: string;
 }
 
-export interface ChannelRow {
+export interface ChannelRowFull {
   id: string;
   node_id: string;
   name: string;
   type: 'text' | 'voice';
   position: number;
 }
-
-interface MemberRow {
-  id: string;
-  node_id: string;
-  user_id: string;
-  joined_at: string;
-  profiles: {
-    id: string;
-    username: string;
-    displayName: string;
-    profileImage?: string;
-    online_status?: 'online' | 'away' | 'dnd' | 'offline';
-    chat_bubble_color?: string;
-  };
-}
-
 
 export interface Profile {
   id: string;
@@ -91,10 +75,18 @@ export default function NodeViewPage() {
         .order('position', { ascending: true });
 
       if (!error && data) {
-        setChannels(data.filter((ch: ChannelRow) => ch.type === 'text'));
-        setVoiceChannels(data.filter((ch: ChannelRow) => ch.type === 'voice'));
+        setChannels(data.filter((ch: ChannelRowFull) => ch.type === 'text').map((c) => ({
+          id: c.id,
+          name: c.name,
+          type: c.type,
+        })));
+        setVoiceChannels(data.filter((ch: ChannelRowFull) => ch.type === 'voice').map((vc) => ({
+          id: vc.id,
+          name: vc.name,
+          type: vc.type,
+        })));
         // Set the first text channel as default selected
-        setCurrentChannel(data.find((ch: ChannelRow) => ch.type === 'text') || null);
+        setCurrentChannel(data.find((ch: ChannelRowFull) => ch.type === 'text') || null);
       }
     };
     fetchChannels();
@@ -110,7 +102,17 @@ export default function NodeViewPage() {
         .eq('node_id', id);
 
       if (!error && data) {
-        setMembers(data as MemberRow[]);
+        // Map member data to the flat shape NodeSidebar expects
+        setMembers(
+          data.map((m: any) => ({
+            id: m.profile?.id ?? m.id,
+            displayName: m.profile?.displayName ?? "",
+            username: m.profile?.username ?? "",
+            profileImage: m.profile?.profileImage ?? "",
+            online_status: m.profile?.online_status ?? "offline",
+            chat_bubble_color: m.profile?.chat_bubble_color ?? "#232428",
+          }))
+        );
       }
     };
     fetchMembers();
@@ -149,40 +151,34 @@ export default function NodeViewPage() {
     fetchUserNodes();
   }, []);
 
-  // Handler for selecting a channel
-  const handleSelectChannel = (channel: ChannelRow) => {
-    setCurrentChannel(channel);
+  // Handler for adding a new channel (placeholder)
+  const handleCreateChannel = () => {
+    alert("Channel creation coming soon!");
+  };
+
+  // Handler for adding a new voice channel (placeholder)
+  const handleCreateVoiceChannel = () => {
+    alert("Voice channel creation coming soon!");
   };
 
   return (
     <div className="flex min-h-screen bg-black text-white font-sans">
       <NodeSidebar
         nodeId={typeof id === 'string' ? id : ''}
-        channels={channels.map(c => ({ id: c.id, name: c.name }))}
-        voiceChannels={voiceChannels.map(vc => ({ id: vc.id, name: vc.name }))} onCreateChannel={function (): void {
-          throw new Error('Function not implemented.');
-        } } onCreateVC={function (): void {
-          throw new Error('Function not implemented.');
-        } }  // Optionally add onCreateChannel and onCreateVC handlers
-/>
-
+        channels={channels}
+        voiceChannels={voiceChannels}
+        members={members}
+        selectedChannelId={currentChannel?.id || ''}
+        onChannelClick={(channel) => setCurrentChannel(channel)}
+        onCreateChannel={handleCreateChannel}
+        onCreateVC={handleCreateVoiceChannel}
+      />
       <div className="flex-1 flex flex-col">
         {node && (
           <NodeHeader nodeId={node.id} nodeName={node.name} nodeIcon={node.icon ?? null} />
         )}
         <div className="flex flex-1">
-          {/*<ChannelList
-            channels={channels}
-            voiceChannels={voiceChannels}
-            currentChannelId={currentChannel?.id || ''}
-            onSelectChannel={handleSelectChannel} members={[]}          />
-          <MiddleChat
-            node={node}
-            channel={currentChannel}
-            userProfile={userProfile}
-            members={members}
-          />
-          {/*<MemberList members={members} />*/}
+          {/* Expand with <ChannelList />, <MiddleChat />, etc, as needed! */}
         </div>
       </div>
     </div>
