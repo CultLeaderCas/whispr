@@ -242,46 +242,47 @@ export default function NodeSidebar({
             Members
           </span>
           <span className="text-xs text-[#12f7ff]">
-            {onlineCount} online
+            {members.length} member{members.length !== 1 && "s"} / {onlineCount} online
           </span>
         </div>
         <div className="mb-3 border-b border-[#232428]" />
-        {members.length === 0 && (
-          <div className="text-xs text-[#555] italic pl-1 pb-2">No members.</div>
-        )}
-        <div className="flex flex-col gap-2">
-          {members.map((member) => (
-            <div
-              key={member.id}
-              className="flex items-center gap-2 rounded-lg p-2"
-              style={{
-                background: member.chat_bubble_color || "#232428",
-              }}
-            >
-              <span
-                className={`w-2 h-2 rounded-full mr-2`}
+        {members.length === 0 ? (
+          <div className="text-xs text-[#555] italic pl-1 pb-2">No members yet.</div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {members.map((member) => (
+              <div
+                key={member.id}
+                className="flex items-center gap-2 rounded-lg p-2"
                 style={{
-                  background:
-                    member.online_status === "online"
-                      ? "#22C55E"
-                      : member.online_status === "away"
-                      ? "#F59E0B"
-                      : member.online_status === "dnd"
-                      ? "#EF4444"
-                      : "#6B7280",
+                  background: member.chat_bubble_color || "#232428",
                 }}
-              />
-              <img
-                src={member.profileImage || "/default-avatar.png"}
-                alt={member.displayName}
-                className="w-7 h-7 rounded-full"
-              />
-              <span className="text-[#eee] font-medium truncate">
-                {member.displayName || member.username}
-              </span>
-            </div>
-          ))}
-        </div>
+              >
+                <span
+                  className={`w-2 h-2 rounded-full mr-2`}
+                  style={{
+                    background:
+                      member.online_status === "online"
+                        ? "#22C55E"
+                        : member.online_status === "away"
+                        ? "#F59E0B"
+                        : member.online_status === "dnd"
+                        ? "#EF4444"
+                        : "#6B7280",
+                  }}
+                />
+                <img
+                  src={member.profileImage || "/default-avatar.png"}
+                  alt={member.displayName}
+                  className="w-7 h-7 rounded-full"
+                />
+                <span className="text-[#eee] font-medium truncate">
+                  {member.displayName || member.username}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
