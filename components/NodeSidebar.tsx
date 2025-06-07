@@ -9,7 +9,6 @@ export interface ChannelRow {
   name: string;
   type?: string; // "text" or "voice"
 }
-
 export interface MemberRow {
   id: string;
   displayName: string;
@@ -42,10 +41,9 @@ export default function NodeSidebar({
 }: NodeSidebarProps) {
   const router = useRouter();
   const [showInvite, setShowInvite] = useState(false);
-
-  // Friends for the invite popup
   const [friends, setFriends] = useState<MemberRow[]>([]);
 
+  // Fetch friend list when invite modal is open
   useEffect(() => {
     if (!showInvite) return;
     async function fetchFriends() {
@@ -68,7 +66,7 @@ export default function NodeSidebar({
     fetchFriends();
   }, [showInvite]);
 
-  // Online members only (for the little badge)
+  // Online members only (for the badge)
   const onlineCount = members.filter((m) => m.online_status === "online").length;
 
   return (
@@ -130,11 +128,11 @@ export default function NodeSidebar({
                         alert("You must be logged in to send invites.");
                         return;
                       }
-                      // Insert invite DM
+                      // Insert invite DM as a message
                       await supabase.from("messages").insert({
                         sender_id: user.id,
                         recipient_id: friend.id,
-                        content: `You've been invited to join a server! Click here: ${inviteLink}`,
+                        content: `You've been invited to join the server! Click here to join: ${inviteLink}`,
                         created_at: new Date().toISOString(),
                       });
                       alert("Invite sent to " + friend.displayName + "!");
@@ -225,7 +223,6 @@ export default function NodeSidebar({
             <button
               key={vc.id}
               className="w-full text-left px-3 py-2 rounded-lg transition font-medium bg-[#232428] hover:bg-[#2e2f34] text-[#bbb]"
-              // onClick={() => ... handle VC join ...}
             >
               <HiVolumeUp className="inline-block mr-2" />
               {vc.name}
