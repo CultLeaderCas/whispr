@@ -122,18 +122,24 @@ export default function NodeSidebar({
                   <button
                     className="bg-[#12f7ff] hover:bg-[#0fd0e0] text-[#18191c] font-bold px-2 py-1 rounded-lg text-xs"
                     onClick={async () => {
+                      // --- Invite message includes node name and icon ---
                       const inviteLink = `${window.location.origin}/join/${nodeId}`;
+                      const { data: node } = await supabase
+                        .from("nodes")
+                        .select("name, icon")
+                        .eq("id", nodeId)
+                        .single();
                       const { data: { user } } = await supabase.auth.getUser();
                       if (!user) {
                         alert("You must be logged in to send invites.");
                         return;
                       }
-                      // Insert invite DM as a message
                       await supabase.from("messages").insert({
                         sender_id: user.id,
                         recipient_id: friend.id,
-                        content: `You've been invited to join the server! Click here to join: ${inviteLink}`,
+                        content: `[INVITE]\nServer: ${node?.name || "Server"}\n![icon](${node?.icon || "/default-node.png"})\nJoin here: ${inviteLink}`,
                         created_at: new Date().toISOString(),
+                        type: "server_invite", // (optional: add a type to distinguish)
                       });
                       alert("Invite sent to " + friend.displayName + "!");
                     }}
