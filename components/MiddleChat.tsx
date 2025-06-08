@@ -4,8 +4,8 @@ import Image from "next/image";
 
 interface Message {
   id: string;
- chat_session_id: string;
-  user_id: string;
+  chat_session_id: string;
+  sender_id: string;
   content: string;
   created_at: string;
   user: {
@@ -37,7 +37,7 @@ export default function MiddleChat({ channelId, currentUserId }: MiddleChatProps
       setLoading(true);
       const { data, error } = await supabase
         .from("messages")
-        .select("*, user:user_id(id, displayName, profileImage, themeColor)")
+        .select("*, user:sender_id(id, displayName, profileImage, themeColor)")
         .eq("chat_session_id", channelId)
         .order("created_at", { ascending: true });
       if (!error && data) setMessages(data);
@@ -46,18 +46,18 @@ export default function MiddleChat({ channelId, currentUserId }: MiddleChatProps
 
     fetchMessages();
 
-channel = supabase
-  .channel(`realtime:messages:${channelId}`)
-  .on(
-    "postgres_changes",
-    { event: "*", schema: "public", table: "messages", filter: `chat_session_id=eq.${channelId}` },
-    (payload) => {
-      if (payload.eventType === "INSERT") {
-        setMessages((prev) => [...prev, payload.new as Message]);
-      }
-    }
-  )
-  .subscribe();
+    channel = supabase
+      .channel(`realtime:messages:${channelId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages", filter: `chat_session_id=eq.${channelId}` },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setMessages((prev) => [...prev, payload.new as Message]);
+          }
+        }
+      )
+      .subscribe();
 
     return () => {
       if (channel) supabase.removeChannel(channel);
@@ -74,12 +74,15 @@ channel = supabase
     const trimmed = input.trim();
     if (!trimmed || !channelId) return;
     setInput("");
-    await supabase.from("messages").insert({
+    const { error } = await supabase.from("messages").insert({
       chat_session_id: channelId,
-      user_id: currentUserId,
+      sender_id: currentUserId,         // <-- THIS IS THE FIX!
       content: trimmed,
       created_at: new Date().toISOString(),
     });
+    if (error) {
+      alert("Failed to send message: " + error.message);
+    }
   };
 
   return (
@@ -92,9 +95,9 @@ channel = supabase
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`flex gap-3 mb-4 items-start ${msg.user_id === currentUserId ? "justify-end" : ""}`}
+            className={`flex gap-3 mb-4 items-start ${msg.sender_id === currentUserId ? "justify-end" : ""}`}
           >
-            {msg.user_id !== currentUserId && (
+            {msg.sender_id !== currentUserId && (
               <Image
                 src={msg.user?.profileImage || "/default-avatar.png"}
                 alt={msg.user?.displayName || "User"}
@@ -106,13 +109,13 @@ channel = supabase
             )}
             <div
               className={`rounded-xl px-4 py-2 max-w-[70%] shadow-md transition-colors ${
-                msg.user_id === currentUserId
+                msg.sender_id === currentUserId
                   ? "bg-[#9500FF] text-white ml-auto"
                   : "bg-[#232428] text-[#eee]"
               }`}
               style={{
-                border: msg.user_id === currentUserId ? "2px solid #12f7ff" : undefined,
-                boxShadow: msg.user_id !== currentUserId ? "0 1px 8px 1px #0fd0e0aa" : undefined,
+                border: msg.sender_id === currentUserId ? "2px solid #12f7ff" : undefined,
+                boxShadow: msg.sender_id !== currentUserId ? "0 1px 8px 1px #0fd0e0aa" : undefined,
               }}
             >
               <span className="block text-xs font-bold mb-1" style={{ color: msg.user?.themeColor || "#12f7ff" }}>
