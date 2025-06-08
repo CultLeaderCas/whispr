@@ -7,7 +7,7 @@ import NodeHeader from '@/components/NodeHeader';
 import NodeSidebar, { ChannelRow, MemberRow } from '@/components/NodeSidebar';
 //import ChannelList from '@/components/ChannelList';
 //import MemberList from '@/components/MemberList';
-//import MiddleChat from '@/components/MiddleChat';
+import MiddleChat from '@/components/MiddleChat';
 
 export interface NodeRow {
   id: string;
@@ -161,26 +161,32 @@ export default function NodeViewPage() {
     alert("Voice channel creation coming soon!");
   };
 
-  return (
-    <div className="flex min-h-screen bg-black text-white font-sans">
-      <NodeSidebar
-        nodeId={typeof id === 'string' ? id : ''}
-        channels={channels}
-        voiceChannels={voiceChannels}
-        members={members}
-        selectedChannelId={currentChannel?.id || ''}
-        onChannelClick={(channel) => setCurrentChannel(channel)}
-        onCreateChannel={handleCreateChannel}
-        onCreateVC={handleCreateVoiceChannel}
-      />
-      <div className="flex-1 flex flex-col">
-        {node && (
-          <NodeHeader nodeId={node.id} nodeName={node.name} nodeIcon={node.icon ?? null} />
+return (
+  <div className="flex min-h-screen bg-black text-white font-sans">
+    <NodeSidebar
+      nodeId={typeof id === 'string' ? id : ''}
+      channels={channels}
+      voiceChannels={voiceChannels}
+      members={members}
+      selectedChannelId={currentChannel?.id || ''}
+      onChannelClick={(channel) => setCurrentChannel(channel)}
+      onCreateChannel={handleCreateChannel}
+      onCreateVC={handleCreateVoiceChannel}
+    />
+    <div className="flex-1 flex flex-col">
+      {node && (
+        <NodeHeader nodeId={node.id} nodeName={node.name} nodeIcon={node.icon ?? null} />
+      )}
+      <div className="flex flex-1">
+        {currentChannel && userProfile ? (
+          <MiddleChat channelId={currentChannel.id} currentUserId={userProfile.id} />
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-[#888] text-lg italic">
+            Select a channel to begin chatting ✨
+          </div>
         )}
-        <div className="flex flex-1">
-          {/* Expand with <ChannelList />, <MiddleChat />, etc, as needed! */}
-        </div>
       </div>
     </div>
+  </div>
   );
 }
