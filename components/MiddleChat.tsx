@@ -53,7 +53,7 @@ export default function MiddleChat({ channelId, currentUserId }: MiddleChatProps
         { event: "*", schema: "public", table: "messages", filter: `channel_id=eq.${channelId}` },
         (payload) => {
           if (payload.eventType === "INSERT") {
-            setMessages((prev) => [...prev, payload.new]);
+            setMessages((prev) => [...prev, payload.new as Message]);
           }
         }
       )
