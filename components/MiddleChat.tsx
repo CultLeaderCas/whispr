@@ -4,7 +4,7 @@ import Image from "next/image";
 
 interface Message {
   id: string;
-  channel_id: string;
+ chat_session_id: string;
   user_id: string;
   content: string;
   created_at: string;
@@ -38,7 +38,7 @@ export default function MiddleChat({ channelId, currentUserId }: MiddleChatProps
       const { data, error } = await supabase
         .from("messages")
         .select("*, user:user_id(id, displayName, profileImage, themeColor)")
-        .eq("channel_id", channelId)
+        .eq("chat_session_id", channelId)
         .order("created_at", { ascending: true });
       if (!error && data) setMessages(data);
       setLoading(false);
@@ -46,18 +46,18 @@ export default function MiddleChat({ channelId, currentUserId }: MiddleChatProps
 
     fetchMessages();
 
-    channel = supabase
-      .channel(`realtime:messages:${channelId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "messages", filter: `channel_id=eq.${channelId}` },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            setMessages((prev) => [...prev, payload.new as Message]);
-          }
-        }
-      )
-      .subscribe();
+channel = supabase
+  .channel(`realtime:messages:${channelId}`)
+  .on(
+    "postgres_changes",
+    { event: "*", schema: "public", table: "messages", filter: `chat_session_id=eq.${channelId}` },
+    (payload) => {
+      if (payload.eventType === "INSERT") {
+        setMessages((prev) => [...prev, payload.new as Message]);
+      }
+    }
+  )
+  .subscribe();
 
     return () => {
       if (channel) supabase.removeChannel(channel);
@@ -75,7 +75,7 @@ export default function MiddleChat({ channelId, currentUserId }: MiddleChatProps
     if (!trimmed || !channelId) return;
     setInput("");
     await supabase.from("messages").insert({
-      channel_id: channelId,
+      chat_session_id: channelId,
       user_id: currentUserId,
       content: trimmed,
       created_at: new Date().toISOString(),
